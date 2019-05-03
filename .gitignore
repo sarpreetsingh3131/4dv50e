@@ -2,7 +2,7 @@ __pycache__
 .venv
 .DS_Store
 .vscode
-machine_learner/models
+machine_learner/model
 .idea
 .mvn
 mvn**
