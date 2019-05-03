@@ -2,9 +2,9 @@ __pycache__
 .venv
 .DS_Store
 .vscode
-machine_learner/model
 .idea
 .mvn
 mvn**
 simulation/activforms/target
 simulation/simulator/target
+machine_learner/model
