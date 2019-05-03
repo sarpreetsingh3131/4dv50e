@@ -1,9 +1,9 @@
 version: '3.3'
 
 services:
-  ann_learner:
-    build: .
+  machine_learner:
+    build: ./machine_learner
     ports:
       - "5000:5000"
     volumes:
-      - ".:/opt/ann-learner"
+      - "./machine_learner:/opt/machine_learner"

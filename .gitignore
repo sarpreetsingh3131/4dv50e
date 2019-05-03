@@ -1,1 +1,5 @@
 __pycache__
+.venv
+.DS_Store
+.vscode
+machine_learner/models

@@ -1,0 +1,5 @@
+numpy
+six
+scikit-learn==0.20.1
+Flask
+requests
