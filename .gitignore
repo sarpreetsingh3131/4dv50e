@@ -3,3 +3,8 @@ __pycache__
 .DS_Store
 .vscode
 machine_learner/models
+.idea
+.mvn
+mvn**
+simulation/activforms/target
+simulation/simulator/target

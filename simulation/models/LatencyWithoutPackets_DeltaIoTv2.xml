@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// Service Configuration
+
+const int MAX_MOTES = 37;
+const int MAX_LINKS_PER_MOTE = 2;
+const int MAX_LINKS = 42;
+typedef int[2, MAX_MOTES] mote_ids;
+typedef int[1, MAX_MOTES] d_id;
+
+const int routerId = 1;
+int MAX_QUEUE = 80;
+int MAX_SLOTS = 60;
+
+typedef struct {
+    int source;
+    int destination;
+    int powerSetting;
+    int distribution;
+}Link;
+
+typedef struct {
+    int moteId;
+    int load;
+    int energyLevel;
+    int parents;
+    int queueSize;
+    Link links[MAX_LINKS_PER_MOTE];
+}Mote;
+
+typedef struct {
+    Mote motes[mote_ids];
+}ManagedSystem;
+
+typedef struct {
+    int packetLoss;
+    int energyConsumption;
+} Qualities;
+
+typedef struct{
+    int source;
+    int destination;
+    int SNR;
+} LinkSNR;
+
+typedef struct{
+    int mote;
+    int traffic; 
+} MoteTraffic;
+
+typedef struct {
+    LinkSNR linksSNR[MAX_LINKS];
+    MoteTraffic motesTraffic[mote_ids];
+} Environment;
+
+const Link EMPTY_LINK={0,0,0,0};
+//&lt;Configuration&gt;
+ManagedSystem deltaIoT = {{
+{2, 10, 11744, 1, 0,{{2, 3, 15, 100},{0, 0, 0, 0}}},
+{3, 10, 11744, 1, 0,{{3, 4, 15, 100},{0, 0, 0, 0}}},
+{4, 10, 11744, 1, 0,{{4, 5, 15, 100},{0, 0, 0, 0}}},
+{5, 10, 11744, 1, 0,{{5, 1, 15, 100},{0, 0, 0, 0}}},
+{6, 10, 11744, 1, 0,{{6, 5, 13, 100},{0, 0, 0, 0}}},
+{7, 10, 11744, 2, 0,{{7, 8, 0, 0},{7, 22, 15, 100}}},
+{8, 10, 11744, 1, 0,{{8, 21, 15, 100},{0, 0, 0, 0}}},
+{9, 10, 11744, 1, 0,{{9, 2, 0, 100},{0, 0, 0, 0}}},
+{10, 10, 11744, 1, 0,{{10, 11, 11, 100},{0, 0, 0, 0}}},
+{11, 10, 11744, 1, 0,{{11, 12, 15, 100},{0, 0, 0, 0}}},
+{12, 10, 11744, 1, 0,{{12, 1, 15, 100},{0, 0, 0, 0}}},
+{13, 10, 11744, 1, 0,{{13, 14, 15, 100},{0, 0, 0, 0}}},
+{14, 10, 11744, 2, 0,{{14, 25, 10, 70},{14, 26, 15, 30}}},
+{15, 10, 11744, 1, 0,{{15, 10, 12, 100},{0, 0, 0, 0}}},
+{16, 10, 11744, 2, 0,{{16, 17, 15, 50},{16, 19, 15, 50}}},
+{17, 10, 11744, 1, 0,{{17, 18, 4, 100},{0, 0, 0, 0}}},
+{18, 10, 11744, 1, 0,{{18, 1, 3, 100},{0, 0, 0, 0}}},
+{19, 10, 11744, 1, 0,{{19, 18, 15, 100},{0, 0, 0, 0}}},
+{20, 10, 11744, 1, 0,{{20, 1, 15, 100},{0, 0, 0, 0}}},
+{21, 10, 11744, 1, 0,{{21, 1, 15, 100},{0, 0, 0, 0}}},
+{22, 10, 11744, 2, 0,{{22, 21, 15, 50},{22, 23, 15, 50}}},
+{23, 10, 11744, 1, 0,{{23, 21, 15, 100},{0, 0, 0, 0}}},
+{24, 10, 11744, 2, 0,{{24, 21, 0, 20},{24, 23, 15, 80}}},
+{25, 10, 11744, 1, 0,{{25, 10, 0, 100},{0, 0, 0, 0}}},
+{26, 10, 11744, 1, 0,{{26, 15, 15, 100},{0, 0, 0, 0}}},
+{27, 10, 11744, 1, 0,{{27, 28, 15, 100},{0, 0, 0, 0}}},
+{28, 10, 11744, 1, 0,{{28, 20, 0, 100},{0, 0, 0, 0}}},
+{29, 10, 11744, 1, 0,{{29, 20, 15, 100},{0, 0, 0, 0}}},
+{30, 10, 11744, 1, 0,{{30, 31, 15, 100},{0, 0, 0, 0}}},
+{31, 10, 11744, 1, 0,{{31, 1, 15, 100},{0, 0, 0, 0}}},
+{32, 10, 11744, 1, 0,{{32, 31, 15, 100},{0, 0, 0, 0}}},
+{33, 10, 11744, 1, 0,{{33, 29, 15, 100},{0, 0, 0, 0}}},
+{34, 10, 11744, 1, 0,{{34, 33, 15, 100},{0, 0, 0, 0}}},
+{35, 10, 11744, 2, 0,{{35, 27, 1, 50},{35, 30, 15, 50}}},
+{36, 10, 11744, 1, 0,{{36, 32, 15, 100},{0, 0, 0, 0}}},
+{37, 10, 11744, 1, 0,{{37, 32, 15, 100},{0, 0, 0, 0}}}
+}};
+Environment environment = {
+{{2, 3, -1},{3, 4, -5},{4, 5, -1},{5, 1, -4},{6, 5, 0},{7, 8, 0},{7, 22, 5},{8, 21, -4},{9, 2, 1},{10, 11, 0},{11, 12, -2},{12, 1, 0},{13, 14, -3},{14, 25, 0},{14, 26, -4},{15, 10, 0},{16, 17, -4},{16, 19, 8},{17, 18, 0},{18, 1, 0},{19, 18, -6},{20, 1, 0},{21, 1, -2},{22, 21, -3},{22, 23, -7},{23, 21, -2},{24, 21, 0},{24, 23, 2},{25, 10, 2},{26, 15, -8},{27, 28, -5},{28, 20, 0},{29, 20, -6},{30, 31, -3},{31, 1, -4},{32, 31, -4},{33, 29, -3},{34, 33, -7},{35, 27, 0},{35, 30, 0},{36, 32, -6},{37, 32, -6}},
+{{2, 100},{3, 50},{4, 100},{5, 50},{6, 50},{7, 100},{8, 50},{9, 100},{10, 50},{11, 50},{12, 50},{13, 100},{14, 50},{15, 100},{16, 50},{17, 100},{18, 100},{19, 50},{20, 50},{21, 100},{22, 100},{23, 50},{24, 50},{25, 50},{26, 50},{27, 50},{28, 100},{29, 50},{30, 50},{31, 100},{32, 50},{33, 50},{34, 100},{35, 50},{36, 50},{37, 50}}}; 
+//&lt;/Configuration&gt;
+
+//&lt;TOPO&gt;
+int topology[d_id] = {7,9,13,16,24,34,35,36,37,2,8,14,17,19,22,27,30,32,33,3,18,23,25,26,28,29,31,4,6,15,20,21,5,10,11,12,1};
+//&lt;/Topology&gt;
+broadcast chan data[d_id], turn[d_id], done;
+
+int packets;
+</declaration>
+	<template>
+		<name>MoteAutomaton</name>
+		<parameter>mote_ids moteId</parameter>
+		<declaration>
+int parent = 0;
+Link link;
+int numParents;
+
+int sendQ;
+bool hasLink(){
+    int i;
+    for(i = parent+1; i &lt; numParents; i++){
+        if (deltaIoT.motes[moteId].links[i] != EMPTY_LINK){
+            return true;
+        }
+    }
+    return false;
+}
+
+int calcParentLoad(Link link){
+    // if there is no next link then current load should be used for this link
+    if (!hasLink())
+        return sendQ;
+    else
+        return sendQ * link.distribution/100;
+}
+
+Link selectNextLink(){
+    int i;
+    for(i = parent+1; i &lt; numParents; i++){
+        if (deltaIoT.motes[moteId].links[i] != EMPTY_LINK){
+            parent = i;
+            return deltaIoT.motes[moteId].links[i];
+        }
+    }
+    return EMPTY_LINK;
+}
+
+int getReceiveQueue(){
+    int q;
+    int SLOTS = MAX_SLOTS - sendQ;
+
+    if (SLOTS &gt;= deltaIoT.motes[moteId].queueSize){
+        q = deltaIoT.motes[moteId].queueSize;
+        deltaIoT.motes[moteId].queueSize = 0;
+    }
+    else if (SLOTS &lt; deltaIoT.motes[moteId].queueSize){
+        q = SLOTS;
+        deltaIoT.motes[moteId].queueSize = deltaIoT.motes[moteId].queueSize - SLOTS;
+    }
+    return q;
+}
+
+int getBuffer(){
+    sendQ = deltaIoT.motes[moteId].load;
+    return sendQ;
+}
+
+void initialize(){
+
+    parent = -1;
+    numParents = deltaIoT.motes[moteId].parents;
+    sendQ = 0;
+}
+
+void receivePackets(int numPackets){
+        deltaIoT.motes[moteId].queueSize += numPackets;
+    if (deltaIoT.motes[moteId].queueSize &gt; MAX_QUEUE)
+        deltaIoT.motes[moteId].queueSize = MAX_QUEUE;
+}
+
+void sendPackets(int numPackets){
+    sendQ -= numPackets;
+}
+
+int pTraffic(int moteId){
+    return environment.motesTraffic[moteId].traffic;
+}</declaration>
+		<location id="id0" x="-144" y="85">
+			<name x="-127" y="76">MoteActive</name>
+			<committed/>
+		</location>
+		<location id="id1" x="102" y="85">
+			<name x="92" y="51">Turn</name>
+			<committed/>
+		</location>
+		<location id="id2" x="357" y="161">
+			<name x="263" y="178">PacketsReceived</name>
+			<committed/>
+		</location>
+		<location id="id3" x="-34" y="-34">
+			<name x="-77" y="-161">CalculateLoad</name>
+			<committed/>
+		</location>
+		<location id="id4" x="365" y="-34">
+			<urgent/>
+		</location>
+		<location id="id5" x="161" y="-34">
+			<name x="118" y="-161">SendPackets</name>
+			<committed/>
+		</location>
+		<location id="id6" x="-204" y="-34">
+			<name x="-221" y="-161">ForEachLink</name>
+			<committed/>
+		</location>
+		<location id="id7" x="255" y="85">
+			<name x="245" y="51">Idle</name>
+		</location>
+		<branchpoint id="id8" x="17" y="85">
+		</branchpoint>
+		<init ref="id7"/>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id6"/>
+			<nail x="-204" y="85"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-144" y="153">sendQ=
+getBuffer()+getReceiveQueue()</label>
+			<label kind="probability" x="-144" y="136">pTraffic(moteId)</label>
+			<nail x="17" y="127"/>
+			<nail x="-144" y="127"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-144" y="17">sendQ=getReceiveQueue()</label>
+			<label kind="probability" x="-144" y="0">100-pTraffic(moteId)</label>
+			<nail x="17" y="42"/>
+			<nail x="-144" y="42"/>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id8"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="136" y="42">turn[moteId]?</label>
+			<label kind="assignment" x="136" y="59">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id7"/>
+			<nail x="357" y="119"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="178" y="119">data[moteId]?</label>
+			<label kind="assignment" x="178" y="136">receivePackets(packets)</label>
+			<nail x="153" y="119"/>
+			<nail x="153" y="161"/>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id5"/>
+			<label kind="assignment" x="-8" y="-76">packets = 
+calcParentLoad(link)</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id7"/>
+			<label kind="guard" x="289" y="59">!hasLink()</label>
+			<label kind="synchronisation" x="289" y="42">done!</label>
+			<nail x="365" y="85"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id6"/>
+			<label kind="guard" x="297" y="-136">hasLink()</label>
+			<nail x="365" y="-136"/>
+			<nail x="-204" y="-136"/>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="187" y="-76">data[link.destination]!</label>
+			<label kind="assignment" x="187" y="-59">sendPackets(packets)</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id3"/>
+			<label kind="assignment" x="-178" y="-76">link = 
+selectNextLink()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Gateway</name>
+		<declaration>int periods = 0;
+double recvdPackets;
+double totalPackets;
+int queuedPackets;
+double latency;
+double totalLatency;
+double avgLatency;
+
+void reset(){
+    recvdPackets = 0;
+}
+
+void recvPackets(int packets){
+    recvdPackets = recvdPackets +  packets;
+}
+
+
+int getQueuedPacketsFromAllMotes(){
+    int packets;
+    for(m: mote_ids){
+        packets += deltaIoT.motes[m].queueSize;
+    }
+    return packets;
+}</declaration>
+		<location id="id9" x="-102" y="0">
+			<name x="-85" y="-8">Turn</name>
+			<committed/>
+		</location>
+		<location id="id10" x="68" y="0">
+		</location>
+		<init ref="id10"/>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-119" y="34">done!</label>
+			<label kind="assignment" x="-119" y="51">queuedPackets = getQueuedPacketsFromAllMotes(),
+totalPackets = recvdPackets + queuedPackets,
+latency = queuedPackets / totalPackets,
+totalLatency = totalLatency + latency,
+avgLatency = totalLatency/periods,
+reset()</label>
+			<nail x="-102" y="34"/>
+			<nail x="43" y="34"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-102" y="-76">turn[routerId]?</label>
+			<label kind="assignment" x="-102" y="-59">periods++</label>
+			<nail x="43" y="-34"/>
+			<nail x="-102" y="-34"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="76" y="-76">data[routerId]?</label>
+			<label kind="assignment" x="76" y="-59">recvPackets(packets)</label>
+			<nail x="93" y="-34"/>
+			<nail x="238" y="-34"/>
+			<nail x="238" y="34"/>
+			<nail x="93" y="34"/>
+		</transition>
+	</template>
+	<template>
+		<name>System</name>
+		<declaration>clock t;
+int mId;
+int moteId;
+
+void initialize(){
+    mId = 1;
+}
+
+bool hasTurn(){
+    return mId != MAX_MOTES+1;
+}
+
+int nextTurn(){
+   return topology[mId++]; 
+}</declaration>
+		<location id="id11" x="85" y="-34">
+			<name x="25" y="-127">MoteDone</name>
+			<committed/>
+		</location>
+		<location id="id12" x="0" y="-34">
+		</location>
+		<location id="id13" x="-127" y="-34">
+			<name x="-161" y="-127">TakeTurn</name>
+			<committed/>
+		</location>
+		<location id="id14" x="-238" y="-34">
+			<name x="-263" y="-127">ForEachMote</name>
+			<committed/>
+		</location>
+		<location id="id15" x="-238" y="34">
+			<name x="-289" y="51">StartVerification</name>
+			<label kind="invariant" x="-289" y="25">t&lt;=1</label>
+		</location>
+		<init ref="id15"/>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id15"/>
+			<label kind="guard" x="0" y="-9">!hasTurn()</label>
+			<label kind="assignment" x="0" y="8">t=0</label>
+			<nail x="85" y="34"/>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id14"/>
+			<label kind="guard" x="8" y="-93">hasTurn()</label>
+			<nail x="85" y="-102"/>
+			<nail x="-238" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="25" y="-59">done?</label>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-110" y="-59">turn[moteId]!</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id13"/>
+			<label kind="guard" x="-221" y="-93">hasTurn()</label>
+			<label kind="assignment" x="-221" y="-76">moteId = 
+nextTurn()</label>
+		</transition>
+		<transition>
+			<source ref="id15"/>
+			<target ref="id14"/>
+			<label kind="guard" x="-229" y="-17">t &gt;=1</label>
+			<label kind="assignment" x="-229" y="0">initialize()</label>
+		</transition>
+	</template>
+	<system>system MoteAutomaton, Gateway,System;</system>
+	<queries>
+		<query>
+			<formula>simulate 1[&lt;=30]{Gateway.avgLatency}
+			</formula>
+			<comment>
+			</comment>
+		</query>
+	</queries>
+</nta>

@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>const int MAX_MOTES = 15;
+const int MAX_LINKS_PER_MOTE = 2;
+typedef int[2, MAX_MOTES] mote_ids;
+typedef int [1, MAX_MOTES] d_id;
+const int MAX_LINKS = 17;
+const int routerId = 1;
+
+typedef struct {
+    int source;
+    int destination;
+    int powerSetting;
+    int distribution;
+}Link;
+
+Link link;
+int newValue;
+
+typedef struct {
+    int moteId;
+    int load;
+    int energyLevel;
+    int parents;
+    int queueSize;
+    Link links[MAX_LINKS_PER_MOTE];
+}Mote;
+
+const Link EMPTY_LINK={0,0,0,0};
+
+typedef struct {
+    Mote motes[mote_ids];
+}ManagedSystem;
+
+typedef struct {
+    int packetLoss;
+    int energyConsumption;
+} Qualities;
+
+typedef struct{
+    int source;
+    int destination;
+    int SNR;
+} LinkSNR;
+
+typedef struct{
+    int mote;
+    int traffic; 
+} MoteTraffic;
+
+typedef struct {
+    LinkSNR linksSNR[MAX_LINKS];
+    MoteTraffic motesTraffic[mote_ids];
+} Environment;
+/*
+typedef struct {
+    ManagedSystem deltaIoT;
+    Qualities qualities;
+    Environment environment;
+} Configuration;
+*/
+//&lt;Configuration&gt;
+ManagedSystem deltaIoT = {{
+
+{2, 10, 11744, 1, 0,{{2, 4, 0, 100},{0, 0, 0, 0}}},
+{3, 10, 11744, 1, 0,{{3, 1, 7, 100},{0, 0, 0, 0}}},
+{4, 10, 11744, 1, 0,{{4, 1, 15, 100},{0, 0, 0, 0}}},
+{5, 10, 11744, 1, 0,{{5, 9, 15, 100},{0, 0, 0, 0}}},
+{6, 10, 11744, 1, 0,{{6, 4, 15, 100},{0, 0, 0, 0}}},
+{7, 10, 11744, 2, 0,{{7, 2, 12, 100},{7, 3, 15, 0}}},
+{8, 10, 11744, 1, 0,{{8, 1, 9, 100},{0, 0, 0, 0}}},
+{9, 10, 11744, 1, 0,{{9, 1, 15, 100},{0, 0, 0, 0}}},
+{10, 10, 11744, 2, 0,{{10, 6, 15, 100},{10, 5, 15, 0}}},
+{11, 10, 11744, 1, 0,{{11, 7, 11, 100},{0, 0, 0, 0}}},
+{12, 10, 11744, 2, 0,{{12, 7, 15, 100},{12, 3, 15, 0}}},
+{13, 10, 11744, 1, 0,{{13, 11, 14, 100},{0, 0, 0, 0}}},
+{14, 10, 11744, 1, 0,{{14, 12, 15, 100},{0, 0, 0, 0}}},
+{15, 10, 11744, 1, 0,{{15, 12, 15, 100},{0, 0, 0, 0}}}
+}};
+Environment environment = {
+{{2, 4, 3},{3, 1, 0},{4, 1, 0},{5, 9, -1},{6, 4, -5},{7, 2, 0},{7, 3, -2},{8, 1, 0},{9, 1, 1},{10, 6, 1},{10, 5, 2},{11, 7, 0},{12, 7, -7},{12, 3, 3},{13, 11, 1},{14, 12, -2},{15, 12, -3}},
+{{2, 50},{3, 100},{4, 50},{5, 50},{6, 100},{7, 50},{8, 50},{9, 100},{10, 0},{11, 50},{12, 50},{13, 27},{14, 50},{15, 100}}};
+//&lt;/Configuration&gt;
+
+//const Qualities verificationResults = {0,0
+//Configuration configuration = {deltaIoT, verificationResults, environment};
+broadcast chan data[mote_ids];
+broadcast chan startVerification;
+bool recv;
+int currentMote;
+
+int pTraffic(int moteId){
+    return environment.motesTraffic[moteId].traffic;
+}
+
+Link getLink(int source, int destination){
+    Mote mote = deltaIoT.motes[source];
+    if (mote.links[0].destination == destination)
+        return mote.links[0];
+
+    return mote.links[1];
+}
+
+void setLink(int source, int destination){
+    link = getLink(source, destination);
+}
+
+void setLinkDirectly(Link _link) {
+    link = _link;
+}
+
+int pDist(int source, int destination){
+     return getLink(source, destination).distribution;
+}
+
+
+</declaration>
+	<template>
+		<name>InitialMoteChoice</name>
+		<declaration>
+int choice;
+</declaration>
+		<location id="id0" x="-77" y="-408">
+			<name x="-119" y="-442">startChecking</name>
+		</location>
+		<location id="id1" x="-246" y="-408">
+			<name x="-314" y="-442">startMoteConfirmed</name>
+			<urgent/>
+		</location>
+		<location id="id2" x="-518" y="-408">
+			<name x="-561" y="-442">moteChosen</name>
+			<urgent/>
+		</location>
+		<location id="id3" x="-680" y="-408">
+			<name x="-739" y="-417">Initial</name>
+			<urgent/>
+		</location>
+		<branchpoint id="id4" x="-374" y="-408">
+		</branchpoint>
+		<init ref="id3"/>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="synchronisation" x="-229" y="-399">startVerification!</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id3"/>
+			<label kind="probability" x="-586" y="-518">100 - pTraffic(choice)</label>
+			<nail x="-374" y="-493"/>
+			<nail x="-374" y="-493"/>
+			<nail x="-680" y="-493"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="-365" y="-383">currentMote = choice</label>
+			<label kind="probability" x="-365" y="-400">pTraffic(choice)</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id4"/>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id2"/>
+			<label kind="select" x="-663" y="-399">mote : mote_ids</label>
+			<label kind="assignment" x="-663" y="-382">choice = mote</label>
+		</transition>
+	</template>
+	<template>
+		<name>Topology</name>
+		<declaration>
+
+int probLink1;
+int probLink2;
+Link chosenLink;
+
+
+void updateProbabilities() {
+    Mote mote = deltaIoT.motes[currentMote];
+
+    // In case that the mote only has one link, the second link in the list (empty link) will always have a distribtution factor of 0
+    probLink1 = mote.links[0].distribution;
+    probLink2 = mote.links[1].distribution;
+}</declaration>
+		<location id="id5" x="204" y="-195">
+			<name x="194" y="-229">Gateway</name>
+		</location>
+		<location id="id6" x="25" y="-195">
+			<name x="15" y="-229">NextDestination</name>
+			<urgent/>
+		</location>
+		<location id="id7" x="25" y="0">
+			<name x="34" y="-34">Start</name>
+			<urgent/>
+		</location>
+		<location id="id8" x="-391" y="-195">
+			<name x="-425" y="-229">LinkChosen</name>
+			<urgent/>
+		</location>
+		<location id="id9" x="-221" y="-195">
+			<name x="-246" y="-238">PackestSent</name>
+			<urgent/>
+		</location>
+		<location id="id10" x="-221" y="0">
+			<name x="-231" y="-34">ChooseLink</name>
+			<urgent/>
+		</location>
+		<location id="id11" x="204" y="0">
+			<name x="194" y="-34">Initial</name>
+		</location>
+		<branchpoint id="id12" x="-391" y="0">
+		</branchpoint>
+		<init ref="id11"/>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id5"/>
+			<label kind="guard" x="51" y="-212">currentMote == 1</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="guard" x="34" y="-102">currentMote != 1</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id6"/>
+			<label kind="guard" x="-204" y="-195">recv</label>
+			<label kind="assignment" x="-204" y="-212">currentMote = link.destination</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-374" y="-212">data[currentMote]!</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id10"/>
+			<label kind="assignment" x="-186" y="0">updateProbabilities()</label>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="68" y="-17">startVerification?</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="-773" y="-161">chosenLink = deltaIoT.motes[currentMote].links[1],
+setLinkDirectly(chosenLink)</label>
+			<label kind="probability" x="-484" y="-42">probLink2</label>
+			<nail x="-416" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="-365" y="-161">chosenLink = deltaIoT.motes[currentMote].links[0],
+setLinkDirectly(chosenLink)</label>
+			<label kind="probability" x="-374" y="-42">probLink1</label>
+			<nail x="-365" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id12"/>
+		</transition>
+	</template>
+	<template>
+		<name>Network</name>
+		<declaration>Mote mote;
+int mId;
+void setMote(int moteId){
+    mId = moteId;
+    mote = deltaIoT.motes[moteId];
+    if (mote.parents == 1){
+        link = mote.links[0];
+    }
+}
+
+int getLinkInterference(Link link){
+    int i;
+    LinkSNR linkSNR;
+    for (i = 0; i &lt; MAX_LINKS; i++){
+        linkSNR = environment.linksSNR[i];
+        if (linkSNR.source == link.source &amp;&amp; linkSNR.destination == link.destination){
+            return linkSNR.SNR;
+        }
+    }
+    return 0;
+}
+
+int pPacketLoss;
+
+void calcPacketLoss(){
+    int linkInterference = getLinkInterference(link);
+
+    if (linkInterference &lt;= -20){
+        pPacketLoss = 100;
+    }
+    else if (linkInterference &gt;= 0){
+        pPacketLoss = 0;
+    }
+    else
+        pPacketLoss = -linkInterference*100/20;
+}
+
+int getPacketLoss(){
+    return pPacketLoss;
+}</declaration>
+		<location id="id13" x="51" y="-102">
+			<name x="-42" y="-144">MessageReceived</name>
+			<committed/>
+		</location>
+		<location id="id14" x="-153" y="0">
+			<name x="-229" y="17">PacketLossCalculated</name>
+			<committed/>
+		</location>
+		<location id="id15" x="51" y="85">
+			<name x="0" y="102">PacketLoss</name>
+		</location>
+		<location id="id16" x="-153" y="-102">
+			<name x="-178" y="-144">Start</name>
+		</location>
+		<branchpoint id="id17" x="51" y="0">
+		</branchpoint>
+		<init ref="id16"/>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id16"/>
+			<label kind="assignment" x="-85" y="-127">recv = true</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id17"/>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id15"/>
+			<label kind="assignment" x="-42" y="51">recv = false</label>
+			<label kind="probability" x="-42" y="34">pPacketLoss</label>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id13"/>
+			<label kind="probability" x="-76" y="-59">100-pPacketLoss</label>
+		</transition>
+		<transition>
+			<source ref="id16"/>
+			<target ref="id14"/>
+			<label kind="select" x="-272" y="-102">mId : mote_ids</label>
+			<label kind="synchronisation" x="-272" y="-85">data[mId]?</label>
+			<label kind="assignment" x="-272" y="-68">setMote(mId),
+calcPacketLoss()</label>
+		</transition>
+	</template>
+	<system>system Topology, Network, InitialMoteChoice;
+    </system>
+	<queries>
+		<query>
+			<formula>Pr [&lt;=1](&lt;&gt;Network.PacketLoss)
+			</formula>
+			<comment>
+			</comment>
+		</query>
+	</queries>
+</nta>

@@ -1,0 +1,1781 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// Service Configuration
+
+const int MAX_MOTES = 15;
+const int MAX_LINKS_PER_MOTE = 2;
+const int MAX_LINKS = 17;
+typedef int[2, MAX_MOTES] mote_ids;
+const int MAX_VERIF_TIME = 5;
+
+//typedef int [0, TOTAL_LINKS] link_ids;
+const int routerId = 1;
+
+const int NONE = 0, CHANGE_DIST = 1, CHANGE_POWER = 2, MAX_STEPS = 2;
+
+int newValue;
+
+// Probe Structures
+typedef struct {
+    int source;
+    int destination;
+    int powerSetting;
+    int packetLoss;
+    int SNR;
+    int distribution;
+    int SF;
+}_Link;
+
+typedef struct{
+    int moteId;
+    int load;
+    int energyLevel;
+    int parents;
+    int dataProbability;
+    int queueSize;
+    _Link links[MAX_LINKS_PER_MOTE];
+}_Mote;
+
+typedef struct{
+    int packetLoss;
+    int energyConsumption;
+    int latency;
+}QoS;
+
+typedef struct{
+    QoS qos;
+    _Mote motes[mote_ids];
+}DeltaIoT;
+DeltaIoT deltaIoT;
+// End Probe Structures
+// Knowledge structures
+typedef struct {
+    int source;
+    int destination;
+    int powerSetting;
+    int distribution;
+}Link;
+
+Link link;
+typedef struct {
+    int moteId;
+    int load;
+    int energyLevel;
+    int parents;
+    int queueSize;
+    Link links[MAX_LINKS_PER_MOTE];
+}Mote;
+
+const Link EMPTY_LINK={0,0,0,0};
+
+typedef struct {
+    Mote motes[mote_ids];
+}ManagedSystem;
+/*
+ManagedSystem deltaIoT = {{
+
+// moteid, load, battery, parents, {source, destination, energy level, distribution}
+{2, 10, 11621, 1, {{2, 4, 15, 100},EMPTY_LINK}},
+{3, 10, 11592, 1, {{3, 1, 15, 100},EMPTY_LINK}},
+{4, 10, 11629, 1, {{4, 1, 15, 100},EMPTY_LINK}},
+{5, 10, 11659, 1, {{5, 9, 15, 100},EMPTY_LINK}},
+{6, 10, 11648, 1, {{6, 4, 15, 100},EMPTY_LINK}},
+{7, 10, 11607, 2, {{7, 2, 15, 50},{7, 3, 15, 50}}},
+{8, 10, 11838, 1, {{8, 1, 15, 100},EMPTY_LINK}},
+{9, 10, 11637, 1, {{9, 1, 15, 100},EMPTY_LINK}},
+{10, 10, 11878, 2,{{10, 6, 15, 50},{10, 5, 15, 50}}},
+{11, 10, 11640, 1, {{11, 7, 15, 100},EMPTY_LINK}},
+{12, 10, 11616, 2, {{12, 7, 15, 50},{12, 3, 15, 50}}},
+{13, 10, 11874, 1, {{13, 11, 15, 100},EMPTY_LINK}},
+{14, 10, 11868, 1, {{14, 12, 15, 100},EMPTY_LINK}},
+{15, 10, 11857, 1, {{15, 12, 15, 100},EMPTY_LINK}}}
+};
+*/
+typedef struct {
+    int packetLoss;
+    int energyConsumption;
+} Qualities;
+
+typedef struct{
+    int source;
+    int destination;
+    int SNR;
+} LinkSNR;
+
+typedef struct{
+    int moteId;
+    int traffic; 
+} MoteTraffic;
+
+typedef struct {
+    LinkSNR linksSNR[MAX_LINKS];
+    MoteTraffic motesTraffic[mote_ids];
+} Environment;
+
+typedef struct {
+    ManagedSystem deltaIoT;
+    Qualities qualities;
+    Environment environment;
+} Configuration;
+
+//Configuration configuration;
+Configuration EMPTY_CONFIG;
+
+const int MAX_OPTIONS = 294;
+
+typedef struct{
+    int type;
+    Link link;
+    int newValue;
+}Step;
+
+typedef struct{
+    Step steps[MAX_LINKS * 2];
+    int totalSteps;
+}Plan;
+
+typedef struct{
+    ManagedSystem deltaIoT;
+    Qualities verificationResults;
+} AdaptationOption;
+
+typedef struct{
+    AdaptationOption options[MAX_OPTIONS];
+    Environment environment;
+    int size;
+}AdaptationOptions;
+AdaptationOptions adaptationOptions;
+
+struct{
+    Configuration currentConfig;
+    Configuration prevConfig;
+    AdaptationOption bestAdaptationOption;
+    AdaptationOptions adaptationOptions;
+    Plan plan;
+}K;
+
+bool thresholdGoalPacketLoss(AdaptationOption &amp;gConf) {
+    return gConf.verificationResults.packetLoss &lt;= 10;
+}
+
+bool optimizationGoalPacketLoss(AdaptationOption &amp;gConf, AdaptationOption &amp;tConf) {
+    return tConf.verificationResults.packetLoss &lt;= gConf.verificationResults.packetLoss;
+}
+
+bool optimizationGoalEnergyCosnumption(AdaptationOption &amp;gConf, AdaptationOption &amp;tConf) {
+    return tConf.verificationResults.energyConsumption &lt; gConf.verificationResults.energyConsumption;
+}
+
+bool equalConfigurations(ManagedSystem c1, ManagedSystem c2){
+    int i;
+    Mote m1, m2;
+    for (m:mote_ids){
+        m1 = c1.motes[m];
+        m2 = c2.motes[m];
+        if (m1.parents != m2.parents)
+            return false;
+        for(i = 0; i &lt; m1.parents; i++){
+            if (m1.links[i] != m2.links[i])
+                return false;
+        }
+    }
+    return true;
+}
+
+chan monitor, analyze, plan, execute, changePower, changeDistribution, invokeVerifier,verificationCompleted,stopVerification, verificationInterrupted;
+broadcast chan feedbackLoopCompleted;
+
+typedef struct{
+    int source;
+    int destination;
+    int multiplier;
+    int constant;
+}SNREquation;
+
+SNREquation snrEquations[MAX_LINKS]={
+{2,	4,	2,	740},
+{3,	1,	50,	124},
+{4,	1,	83,	-812},
+{5,	9,	49,	-449},
+{6,	4,	62,	-981},
+{7,	3,	59,	-664},
+{7,	2,	54,	-205},
+{8,	1,	53,	-10},
+{9,	1,	83,	-729},
+{10, 6, 82, -733},
+{10,	5,	65,	-300},
+{11,	7,	71,	-320},
+{12,	7,	93,	-1620},
+{12,	3,	10,	600},
+{13,	11,	61,	-360},
+{14,	12,	49,	-477},
+{15,	12,	59,	-719}};
+
+int getSNR(int source, int destination, int power){
+    int i, SNR;
+    for(i= 0 ; i &lt; MAX_LINKS; i++){
+        if (snrEquations[i].source == source &amp;&amp; snrEquations[i].destination == destination){
+            SNR = (snrEquations[i].multiplier/100) * power + (snrEquations[i].constant/100);
+            return SNR;
+        }
+    }
+    return 0;
+}
+
+Link getLink(Mote mote, int destination){
+    return mote.links[0].destination == destination?mote.links[0]: mote.links[1];
+}</declaration>
+	<template>
+		<name>Monitor</name>
+		<declaration>void initialize(){
+    K.prevConfig = K.currentConfig;
+}
+
+void updateSystemSettings(){
+    // parse new system settings
+     ManagedSystem ms;
+        _Mote mote;
+        int i;
+        for(m:mote_ids){
+            mote = deltaIoT.motes[m];
+            ms.motes[m].moteId = mote.moteId;
+            ms.motes[m].parents = mote.parents;
+            ms.motes[m].load = mote.load;
+            ms.motes[m].energyLevel = mote.energyLevel;
+            for(i = 0; i &lt; mote.parents; i++){
+                ms.motes[m].links[i].source = mote.links[i].source;
+                ms.motes[m].links[i].destination = mote.links[i].destination;
+                ms.motes[m].links[i].powerSetting = mote.links[i].powerSetting;
+                ms.motes[m].links[i].distribution = mote.links[i].distribution;
+            }
+        }
+        K.currentConfig.deltaIoT = ms;
+}
+
+void updatePacketLoss(){
+    K.currentConfig.qualities.packetLoss = deltaIoT.qos.packetLoss;
+}
+
+void updateEnergyConsumption(){
+    K.currentConfig.qualities.energyConsumption = deltaIoT.qos.energyConsumption;
+}
+
+void updateLinksSNR(){
+    // update SNR of all links;
+    LinkSNR linksSNR[MAX_LINKS];
+    int i, j = 0;
+    _Mote mote;
+    for (m: mote_ids){
+        mote = deltaIoT.motes[m];
+        for (i = 0; i &lt; mote.parents; i++){
+            linksSNR[j].source = mote.links[i].source;
+            linksSNR[j].destination = mote.links[i].destination;
+            linksSNR[j].SNR = mote.links[i].SNR;
+            j++;
+        }
+    }
+    K.currentConfig.environment.linksSNR = linksSNR;
+}
+
+void updateMotesTraffic(){
+    // update mote traffic probabilities;
+    MoteTraffic motesTraffic[mote_ids];
+    int j = 0;
+    _Mote mote;
+    for (m: mote_ids){
+        mote = deltaIoT.motes[m];
+        motesTraffic[m].moteId = mote.moteId;
+        motesTraffic[m].traffic = mote.dataProbability;
+    }
+    K.currentConfig.environment.motesTraffic = motesTraffic;
+}
+
+bool analysisRequired(){
+    return K.prevConfig != K.currentConfig;
+}
+
+void postProcessing(){
+    // nothing to clear here
+}
+
+/* Old functions
+void updateSystemSettings(){
+    K.currentConfig.deltaIoT = configuration.deltaIoT;
+}
+
+void updatePacketLoss(){
+    K.currentConfig.qualities.packetLoss = configuration.qualities.packetLoss;
+}
+
+void updateEnergyConsumption(){
+    K.currentConfig.qualities.energyConsumption = configuration.qualities.energyConsumption;
+}
+
+void updateLinksSNR(){
+    K.currentConfig.environment.linksSNR = configuration.environment.linksSNR;
+}
+
+void updateMotesTraffic(){
+    K.currentConfig.environment.motesTraffic = configuration.environment.motesTraffic;
+}
+
+bool analysisRequired(){
+    return K.prevConfig != configuration;
+}
+
+void postProcessing(){
+    configuration = EMPTY_CONFIG;
+}
+*/
+
+
+
+</declaration>
+		<location id="id0" x="-416" y="-178">
+			<committed/>
+		</location>
+		<location id="id1" x="-340" y="-204">
+			<name x="-391" y="-263">AnalysisRequired</name>
+			<committed/>
+		</location>
+		<location id="id2" x="-340" y="-136">
+			<name x="-408" y="-110">AnalysisNotRequired</name>
+			<committed/>
+		</location>
+		<location id="id3" x="-102" y="-306">
+			<name x="-204" y="-374">KnowledgeUpdated</name>
+			<committed/>
+		</location>
+		<location id="id4" x="-578" y="-306">
+			<name x="-612" y="-374">StartMonitor</name>
+			<committed/>
+		</location>
+		<location id="id5" x="-578" y="-178">
+			<name x="-603" y="-144">Waiting</name>
+		</location>
+		<init ref="id5"/>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id0"/>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id0"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id3"/>
+			<label kind="assignment" x="-510" y="-365">updateSystemSettings(),
+updatePacketLoss(), updateEnergyConsumption(),
+updateLinksSNR(), updateMotesTraffic()</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id5"/>
+			<label kind="assignment" x="-552" y="-204">postProcessing()</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-306" y="-246">analysisRequired()</label>
+			<label kind="synchronisation" x="-306" y="-229">analyze!</label>
+			<nail x="-136" y="-204"/>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="-569" y="-263">monitor?</label>
+			<label kind="assignment" x="-569" y="-246">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-306" y="-178">!analysisRequired()</label>
+			<label kind="synchronisation" x="-306" y="-161">feedbackLoopCompleted!</label>
+			<nail x="-102" y="-136"/>
+		</transition>
+	</template>
+	<template>
+		<name>Analyzer</name>
+		<declaration>
+Link link;
+clock time;
+
+const int SNR_BELOW_THRESHOLD = 0;
+const int SNR_UPPER_THRESHOLD = 5;
+const int ENERGY_CONSUMPTION_THRESHOLD = 5;
+const int PACKET_LOSS_THRESHOLD = 5;
+const int MOTES_TRAFFIC_THRESHOLD = 10;
+
+AdaptationOption newAdaptationOption;
+bool resultSystemSettings, resultPacketLoss, resultEnergyConsumption, resultLinksSNR, resultMotesTraffic;
+
+void initialize(){
+    //K.adaptationOptions.size = 0;
+    resultSystemSettings = false;
+    resultPacketLoss = false;
+    resultEnergyConsumption = false;
+    resultLinksSNR = false;
+    resultMotesTraffic = false;
+}
+
+void analyzeLinksSNR(){
+    int j, linksSNR;
+
+    for(j = 0; j &lt; MAX_LINKS; j++){
+        linksSNR = K.currentConfig.environment.linksSNR[j].SNR;
+        if (linksSNR &lt; SNR_BELOW_THRESHOLD || linksSNR &gt; SNR_UPPER_THRESHOLD){
+           resultLinksSNR = true;
+           return;
+        }
+    }
+}
+
+void analyzeMotesTraffic(){
+    int i, diff;
+
+    for(i:mote_ids){
+        diff = K.currentConfig.environment.motesTraffic[i].traffic -  K.prevConfig.environment.motesTraffic[i].traffic;
+        if (diff &gt; MOTES_TRAFFIC_THRESHOLD || diff &gt; -MOTES_TRAFFIC_THRESHOLD){
+            resultMotesTraffic = true;
+            return;
+        }
+    }
+}
+
+void analyzePacketLoss(){
+    resultPacketLoss = K.currentConfig.qualities.packetLoss &gt; K.prevConfig.qualities.packetLoss + PACKET_LOSS_THRESHOLD;
+}
+
+void analyzeEnergyConsumption(){
+    resultEnergyConsumption = K.currentConfig.qualities.energyConsumption &gt; K.prevConfig.qualities.energyConsumption + ENERGY_CONSUMPTION_THRESHOLD;
+}
+
+void analyzeSystemSettings(){    
+    // check if system settings are not what should be
+    resultSystemSettings = K.currentConfig.deltaIoT != K.prevConfig.deltaIoT;
+}
+
+bool adaptationNeeded(){
+    return resultSystemSettings || resultPacketLoss || resultEnergyConsumption || resultLinksSNR || resultMotesTraffic;
+}
+
+int DISTRIBUTION_GAP = 20;
+Mote motes[6];
+int size;
+
+void saveMotes(){
+    int i, j, id;
+    ManagedSystem deltaIoT_temp;
+    int max = K.adaptationOptions.size;
+    if (max == 0){
+        deltaIoT_temp = newAdaptationOption.deltaIoT;
+        for(j = 0; j &lt; size; j++){
+            id = motes[j].moteId;
+            deltaIoT_temp.motes[id] = motes[j];
+            K.adaptationOptions.options[K.adaptationOptions.size++].deltaIoT = deltaIoT_temp;
+        }
+    }
+    else {
+        for(i = 0; i &lt; max; i++){
+            deltaIoT_temp = K.adaptationOptions.options[i].deltaIoT;
+            for(j = 0; j &lt; size; j++){
+                id = motes[j].moteId;
+                deltaIoT_temp.motes[id] = motes[j];
+                K.adaptationOptions.options[K.adaptationOptions.size++].deltaIoT = deltaIoT_temp;
+            }
+        }
+    }
+}
+
+void createAdaptationOptions(Mote mote){
+    int i;
+    size = 0;
+    if (mote.parents == 2){
+        for(i = 0; i &lt;= 100; i+=DISTRIBUTION_GAP){
+               mote.links[0].distribution = i;
+               mote.links[1].distribution = 100-i;
+               motes[size++] = mote;
+        }
+    }
+    saveMotes();
+}
+
+void checkPowerSettings(){
+    int i, j, powerSetting, linkSNR, diffSNR;
+    Mote mote;
+    Link link;
+    int linkId = -1;
+    
+      for(i: mote_ids){
+        mote = newAdaptationOption.deltaIoT.motes[i];
+        for (j = 0; j &lt; mote.parents; j++){
+            linkId++;
+            link = mote.links[j];
+            // if SNR is below threshold but destination mote is not removed
+            powerSetting = link.powerSetting;
+            linkSNR = K.currentConfig.environment.linksSNR[linkId].SNR;
+            diffSNR = linkSNR - getSNR(link.source, link.destination, powerSetting);
+            if (linkSNR &lt; 0 &amp;&amp; linkSNR != -50){
+                while(powerSetting &lt; 15 &amp;&amp; linkSNR &lt; 0){
+                    linkSNR = getSNR(link.source, link.destination, ++powerSetting) - diffSNR;
+                }
+                if (link.powerSetting != powerSetting){
+                    link.powerSetting = powerSetting;
+                    K.adaptationOptions.environment.linksSNR[linkId].SNR = linkSNR;
+                    mote.links[j] = link;
+                }
+            }
+            else if (linkSNR &gt; 0 &amp;&amp; link.powerSetting &gt; 0){
+                int tempNI = linkSNR;
+                do{
+                    tempNI =  getSNR(link.source, link.destination, powerSetting-1) - diffSNR;
+                    if(tempNI &gt;=0){
+                        powerSetting--;
+                    }
+                }while(powerSetting &gt; 1 &amp;&amp; tempNI &gt;= 0);
+                linkSNR = tempNI;
+                
+                if (link.powerSetting != powerSetting){
+                    link.powerSetting = powerSetting;
+                    K.adaptationOptions.environment.linksSNR[linkId].SNR = linkSNR;
+                    mote.links[j] = link;
+                }
+            }
+        }
+        newAdaptationOption.deltaIoT.motes[i] = mote;
+    }
+}
+
+void checkDistributionSettings(){
+    Mote mote;
+    int j;
+    for(i: mote_ids){
+        mote = newAdaptationOption.deltaIoT.motes[i];
+        if (mote.parents == 2){
+            mote.links[0].distribution = 50;
+            mote.links[1].distribution = 50;
+        }
+        newAdaptationOption.deltaIoT.motes[i] = mote;
+    }
+}
+
+void composeAdaptationOptions(){
+    int i;
+    Link newLink, oldLink;
+    Mote mote;
+
+    // check if power can be changed saved into newConfig object
+    newAdaptationOption.deltaIoT = K.currentConfig.deltaIoT;
+    K.adaptationOptions.environment = K.currentConfig.environment;
+    checkDistributionSettings();
+    checkPowerSettings();
+
+    if (K.adaptationOptions.size &lt;= 1){
+        // create adaptation options
+        K.adaptationOptions.size = 0;
+        for (i = routerId + 1; i &lt;= MAX_MOTES; i++) {
+            mote = newAdaptationOption.deltaIoT.motes[i];
+            createAdaptationOptions(mote);
+	    }
+    }
+    else{
+        int j, k;
+        ManagedSystem deltaIoT = newAdaptationOption.deltaIoT;
+        Qualities EMPTY;
+        // adaptation options are already created just update power settings now
+        for (i = 0; i &lt; K.adaptationOptions.size; i++) {
+            for (j = routerId + 1; j &lt;= MAX_MOTES; j++){
+                for (k = 0; k &lt; deltaIoT.motes[j].parents; k++){
+                    K.adaptationOptions.options[i].deltaIoT.motes[j].links[k].powerSetting = newAdaptationOption.deltaIoT.motes[j].links[k].powerSetting;
+                }
+            }
+            K.adaptationOptions.options[i].verificationResults = EMPTY;
+	    }
+    }
+    // copy adaptation options to adaptaitonOptions variable so verifier can use it
+    adaptationOptions = K.adaptationOptions;
+    
+   // for(i = 0; i &lt; adaptationOptions.size; i++){
+   //     adaptationOptions.options[i].verificationResults.packetLoss = -1;
+    //}
+}
+
+bool sufficientResultsAvailable;
+Qualities EMPTY_VERIFIC_RESULT;
+bool checkVerificationResults(){
+    int i;
+    for(i = 0; i &lt; K.adaptationOptions.size; i++){
+        if (K.adaptationOptions.options[i].verificationResults != EMPTY_VERIFIC_RESULT){
+            if (thresholdGoalPacketLoss(K.adaptationOptions.options[i]))
+                return true;
+        }
+    }
+    return false;
+}
+
+
+void useFailSafeStrategy(){
+    // Our fail safe strategy is to create a fail safe configuration and add it as an adaptation option.
+    // clear other adaptation options so failsafe configuration can be selected by planner
+	AdaptationOption failSafeConfig;
+    int j;
+    // if there are some results that can be used
+    if (checkVerificationResults()){
+        for (j = 0; j &lt; K.adaptationOptions.size; j++){
+            K.adaptationOptions.options[j].verificationResults = adaptationOptions.options[j].verificationResults;
+        }
+        return;
+    }
+    K.adaptationOptions.size = 0;
+    failSafeConfig.deltaIoT = K.currentConfig.deltaIoT;
+	for(i:mote_ids){
+	    for(j = 0; j &lt; failSafeConfig.deltaIoT.motes[i].parents; j++){
+		    failSafeConfig.deltaIoT.motes[i].links[j].powerSetting = 15;
+			failSafeConfig.deltaIoT.motes[i].links[j].distribution = 100;
+		}
+	}
+    failSafeConfig.verificationResults.packetLoss = 0;
+    failSafeConfig.verificationResults.energyConsumption = 0;
+	K.adaptationOptions.options[0] = failSafeConfig;
+    K.adaptationOptions.size = 1;
+}
+
+
+void useVerificationResults(){
+    int i;
+    for(i = 0; i &lt; K.adaptationOptions.size; i++)
+        K.adaptationOptions.options[i].verificationResults = adaptationOptions.options[i].verificationResults;
+}
+void postProcessing(){
+    time = 0;
+}</declaration>
+		<location id="id6" x="-535" y="-408">
+			<name x="-510" y="-416">VerificationCompleted</name>
+			<committed/>
+		</location>
+		<location id="id7" x="-297" y="-272">
+			<name x="-348" y="-221">QualityAnalysis</name>
+			<committed/>
+		</location>
+		<location id="id8" x="-51" y="-272">
+			<name x="-135" y="-221">AdaptationNeeded</name>
+			<committed/>
+		</location>
+		<location id="id9" x="-51" y="-408">
+			<name x="-152" y="-391">AnalysisDone</name>
+			<committed/>
+		</location>
+		<location id="id10" x="-306" y="-408">
+			<name x="-348" y="-391">StartAnalysis</name>
+			<urgent/>
+		</location>
+		<location id="id11" x="-51" y="-544">
+			<name x="-170" y="-612">NoAdaptationNeeded</name>
+			<committed/>
+		</location>
+		<location id="id12" x="-535" y="-544">
+			<name x="-595" y="-612">QualityEstimatesReady</name>
+			<committed/>
+		</location>
+		<location id="id13" x="-535" y="-272">
+			<name x="-594" y="-221">RuntimeVerification</name>
+			<label kind="invariant" x="-619" y="-255">time &lt;= MAX_VERIF_TIME</label>
+		</location>
+		<location id="id14" x="-306" y="-544" color="#00ff00">
+			<name x="-331" y="-612">Waiting</name>
+		</location>
+		<location id="id15" x="-748" y="-272">
+			<name x="-790" y="-221">VerificationTimeExceeded</name>
+			<committed/>
+		</location>
+		<location id="id16" x="-748" y="-544">
+			<name x="-824" y="-612">UseFailSafeStrategy</name>
+			<committed/>
+		</location>
+		<location id="id17" x="-748" y="-433">
+			<name x="-731" y="-433">VerificationInterrupted</name>
+		</location>
+		<init ref="id14"/>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id12"/>
+			<label kind="assignment" x="-527" y="-467">useVerificationResults()</label>
+		</transition>
+		<transition>
+			<source ref="id16"/>
+			<target ref="id12"/>
+			<label kind="assignment" x="-722" y="-569">useFailSafeStrategy()</label>
+			<nail x="-578" y="-544"/>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id15"/>
+			<label kind="guard" x="-730" y="-297">time == MAX_VERIF_TIME</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id7"/>
+			<label kind="assignment" x="-263" y="-297">composeAdaptationOptions()</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-518" y="-586">plan!</label>
+			<label kind="assignment" x="-518" y="-569">postProcessing()</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id8"/>
+			<label kind="guard" x="-195" y="-348">adaptationNeeded()</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id11"/>
+			<label kind="guard" x="-203" y="-527">!adaptationNeeded()</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id13"/>
+			<label kind="synchronisation" x="-501" y="-314">invokeVerifier!</label>
+			<label kind="assignment" x="-501" y="-297">time = 0</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id9"/>
+			<label kind="assignment" x="-280" y="-501">analyzeSystemSettings(),
+analyzePacketLoss(),
+analyzeEnergyConsumption(),
+analyzeLinksSNR(),
+analyzeMotesTraffic()</label>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-263" y="-569">feedbackLoopCompleted!</label>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-527" y="-365">verificationCompleted?</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-382" y="-510">analyze?</label>
+			<label kind="assignment" x="-382" y="-493">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id15"/>
+			<target ref="id17"/>
+			<label kind="synchronisation" x="-731" y="-357">stopVerification!</label>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id16"/>
+			<label kind="synchronisation" x="-739" y="-493">verificationInterrupted?</label>
+			<nail x="-748" y="-518"/>
+		</transition>
+	</template>
+	<template>
+		<name>Planner</name>
+		<declaration>
+Link link;
+int moteCount;
+int linkCount=0;
+int stepCount, stepType;
+AdaptationOption bestAdaptationOption;
+AdaptationOption EMPTY;
+
+void initialize(){
+    // initialize goals
+     moteCount = 2;
+    linkCount = 0;
+    stepCount = 0;
+    
+}
+
+// If a service configuration is changed then add it into the plan
+void addStep(int stepType, Link link, int value){
+    Step step = {stepType, link, value};
+    K.plan.steps[K.plan.totalSteps++] = step;
+}
+
+bool hasLink(){
+     return linkCount &lt; MAX_LINKS;
+}
+Mote mote;
+Mote prevMote;
+Link prevLink;
+bool firstLink = true;
+
+Link nextLink(){
+    Link newLink;
+
+        mote = bestAdaptationOption.deltaIoT.motes[moteCount];
+        prevMote = K.currentConfig.deltaIoT.motes[moteCount];
+
+    if (mote.parents == 1){
+        moteCount++;
+        newLink = mote.links[0];
+        prevLink = prevMote.links[0];
+    }
+    else if (mote.parents == 2){
+        if (firstLink){
+            newLink = mote.links[0];
+            prevLink = prevMote.links[0];
+            firstLink = false;
+        }
+        else{
+            newLink = mote.links[1];
+            prevLink = prevMote.links[1];
+            firstLink = true;
+            moteCount++;
+        }
+    }
+
+    linkCount++;
+    return newLink;
+}
+
+bool hasStep(){
+    return stepType != NONE &amp;&amp; stepCount &lt; MAX_STEPS;
+}
+
+int nextStepType(){
+    if (stepCount == 0 &amp;&amp; link.distribution != prevLink.distribution){
+        stepCount = CHANGE_DIST;
+    }
+    else if(link.powerSetting != prevLink.powerSetting){
+        stepCount = CHANGE_POWER;
+    }
+    else{
+        stepCount = NONE;
+    }
+    return stepCount;
+}
+
+void resetSteps(){
+    stepCount = 0;
+}
+
+void selectBestAdaptationOption(){
+    int i;
+    bool packetLossSatisfied, energyConsumptionSatisfied;
+
+    bestAdaptationOption = EMPTY; //K.adaptationOptions.options[0];
+
+    for(i = 0; i &lt; K.adaptationOptions.size; i++){
+        packetLossSatisfied = thresholdGoalPacketLoss(K.adaptationOptions.options[i]);
+        energyConsumptionSatisfied = optimizationGoalEnergyCosnumption(bestAdaptationOption, K.adaptationOptions.options[i]);
+
+        if (packetLossSatisfied || packetLossSatisfied &amp;&amp; energyConsumptionSatisfied){
+            bestAdaptationOption = K.adaptationOptions.options[i];
+        }
+    }
+}
+
+bool validAdaptationOption(){
+    return bestAdaptationOption != EMPTY;
+}
+
+bool bestAdaptationOptionInUse(){
+    return equalConfigurations(K.currentConfig.deltaIoT, bestAdaptationOption.deltaIoT);
+}
+
+void useFailSafeStrategy(){
+int i;
+    bool packetLossSatisfied, energyConsumptionSatisfied;
+
+    bestAdaptationOption = K.adaptationOptions.options[0];
+
+    for(i = 1; i &lt; K.adaptationOptions.size; i++){
+        packetLossSatisfied = optimizationGoalPacketLoss(bestAdaptationOption, K.adaptationOptions.options[i]);
+        energyConsumptionSatisfied = optimizationGoalEnergyCosnumption(bestAdaptationOption, K.adaptationOptions.options[i]);
+
+        if (packetLossSatisfied || packetLossSatisfied &amp;&amp; energyConsumptionSatisfied){
+            bestAdaptationOption = K.adaptationOptions.options[i];
+        }
+    }
+}
+
+void postProcessing(){
+    K.bestAdaptationOption = bestAdaptationOption;
+}</declaration>
+		<location id="id18" x="16" y="-340">
+			<committed/>
+		</location>
+		<location id="id19" x="-577" y="-510">
+			<name x="-561" y="-535">ForEachStep</name>
+			<committed/>
+		</location>
+		<location id="id20" x="-577" y="-578">
+			<name x="-561" y="-603">ForEachLink</name>
+			<committed/>
+		</location>
+		<location id="id21" x="-331" y="-340">
+			<name x="-399" y="-391">ChangeDistribution</name>
+			<committed/>
+		</location>
+		<location id="id22" x="-331" y="-408">
+			<name x="-374" y="-459">ChangePower</name>
+			<committed/>
+		</location>
+		<location id="id23" x="-238" y="-204">
+			<name x="-281" y="-187">PlanCreated</name>
+			<committed/>
+		</location>
+		<location id="id24" x="-543" y="-340">
+			<committed/>
+		</location>
+		<location id="id25" x="-119" y="-340">
+			<name x="-110" y="-331">StepPlanned</name>
+			<committed/>
+		</location>
+		<location id="id26" x="-816" y="-306">
+			<name x="-799" y="-315">BestOptionInUse</name>
+			<committed/>
+		</location>
+		<location id="id27" x="-816" y="-578">
+			<name x="-901" y="-637">ComposeAdaptationPlan</name>
+			<committed/>
+		</location>
+		<location id="id28" x="-1071" y="-442">
+			<committed/>
+		</location>
+		<location id="id29" x="-816" y="-442">
+			<name x="-799" y="-451">UseFailSafeStrategy</name>
+			<committed/>
+		</location>
+		<location id="id30" x="-918" y="-204">
+			<name x="-952" y="-187">StartPlanner</name>
+			<urgent/>
+		</location>
+		<location id="id31" x="-816" y="-204" color="#00ff00">
+			<name x="-841" y="-187">Waiting</name>
+		</location>
+		<init ref="id31"/>
+		<transition>
+			<source ref="id27"/>
+			<target ref="id20"/>
+		</transition>
+		<transition>
+			<source ref="id24"/>
+			<target ref="id25"/>
+			<label kind="guard" x="-399" y="-297">stepType==NONE</label>
+			<nail x="-543" y="-272"/>
+			<nail x="-119" y="-272"/>
+		</transition>
+		<transition>
+			<source ref="id25"/>
+			<target ref="id19"/>
+			<label kind="guard" x="-365" y="-535">hasStep()</label>
+			<nail x="-85" y="-365"/>
+			<nail x="-85" y="-510"/>
+		</transition>
+		<transition>
+			<source ref="id25"/>
+			<target ref="id18"/>
+			<label kind="guard" x="-77" y="-382">!hasStep()</label>
+			<label kind="assignment" x="-77" y="-365">resetSteps()</label>
+		</transition>
+		<transition>
+			<source ref="id19"/>
+			<target ref="id24"/>
+			<label kind="assignment" x="-568" y="-502">stepType=nextStepType()</label>
+			<nail x="-577" y="-365"/>
+		</transition>
+		<transition>
+			<source ref="id20"/>
+			<target ref="id19"/>
+			<label kind="assignment" x="-569" y="-561">link = nextLink()</label>
+		</transition>
+		<transition>
+			<source ref="id21"/>
+			<target ref="id25"/>
+			<label kind="assignment" x="-289" y="-374">addStep(stepType, link, 
+link.distribution)</label>
+		</transition>
+		<transition>
+			<source ref="id22"/>
+			<target ref="id25"/>
+			<label kind="assignment" x="-289" y="-442">addStep(stepType, link, 
+link.powerSetting)</label>
+			<nail x="-119" y="-408"/>
+		</transition>
+		<transition>
+			<source ref="id18"/>
+			<target ref="id23"/>
+			<label kind="guard" x="-145" y="-229">!hasLink()</label>
+			<nail x="17" y="-204"/>
+		</transition>
+		<transition>
+			<source ref="id24"/>
+			<target ref="id21"/>
+			<label kind="guard" x="-534" y="-365">stepType==CHANGE_DIST</label>
+		</transition>
+		<transition>
+			<source ref="id23"/>
+			<target ref="id31"/>
+			<label kind="synchronisation" x="-501" y="-246">execute!</label>
+			<label kind="assignment" x="-501" y="-229">postProcessing()</label>
+		</transition>
+		<transition>
+			<source ref="id18"/>
+			<target ref="id20"/>
+			<label kind="guard" x="-365" y="-603">hasLink()</label>
+			<nail x="17" y="-578"/>
+		</transition>
+		<transition>
+			<source ref="id24"/>
+			<target ref="id22"/>
+			<label kind="guard" x="-551" y="-433">stepType==CHANGE_POWER</label>
+			<nail x="-543" y="-408"/>
+		</transition>
+		<transition>
+			<source ref="id29"/>
+			<target ref="id26"/>
+			<label kind="guard" x="-807" y="-374">bestAdaptationOptionInUse()</label>
+		</transition>
+		<transition>
+			<source ref="id28"/>
+			<target ref="id27"/>
+			<label kind="guard" x="-1054" y="-620">validAdaptationOption() &amp;&amp; 
+!bestAdaptationOptionInUse()</label>
+			<nail x="-1071" y="-578"/>
+		</transition>
+		<transition>
+			<source ref="id28"/>
+			<target ref="id26"/>
+			<label kind="guard" x="-1054" y="-348">validAdaptationOption() &amp;&amp; 
+bestAdaptationOptionInUse()</label>
+			<nail x="-1071" y="-306"/>
+		</transition>
+		<transition>
+			<source ref="id28"/>
+			<target ref="id29"/>
+			<label kind="guard" x="-1037" y="-484">!validAdaptationOption()</label>
+			<label kind="assignment" x="-1037" y="-467">useFailSafeStrategy()</label>
+		</transition>
+		<transition>
+			<source ref="id29"/>
+			<target ref="id27"/>
+			<label kind="guard" x="-807" y="-510">!bestAdaptationOptionInUse()</label>
+		</transition>
+		<transition>
+			<source ref="id26"/>
+			<target ref="id31"/>
+			<label kind="synchronisation" x="-807" y="-255">feedbackLoopCompleted!</label>
+		</transition>
+		<transition>
+			<source ref="id30"/>
+			<target ref="id28"/>
+			<label kind="assignment" x="-1130" y="-229">selectBestAdaptationOption()</label>
+			<nail x="-1139" y="-204"/>
+			<nail x="-1139" y="-442"/>
+		</transition>
+		<transition>
+			<source ref="id31"/>
+			<target ref="id30"/>
+			<label kind="synchronisation" x="-901" y="-246">plan?</label>
+			<label kind="assignment" x="-901" y="-229">initialize()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Executor</name>
+		<declaration>int index;
+int step;
+
+void initialize(){
+    index = 0;
+}
+
+void postProcessing(){
+    K.plan.totalSteps = 0;
+    K.currentConfig.deltaIoT = K.bestAdaptationOption.deltaIoT;
+    K.currentConfig.qualities = K.bestAdaptationOption.verificationResults;
+}
+
+int nextPlanStep(){
+    return K.plan.steps[index].type;
+}
+
+Link nextStepLink(){
+    return K.plan.steps[index].link;
+}
+
+int nextStepValue(){
+    return K.plan.steps[index++].newValue;
+}
+
+bool allPlanStepsExecuted(){
+    return !(index &lt; K.plan.totalSteps);
+}</declaration>
+		<location id="id32" x="17" y="34">
+			<name x="-17" y="-8">ExecutePlan</name>
+			<committed/>
+		</location>
+		<location id="id33" x="272" y="272">
+			<name x="204" y="229">ChangeDistribution</name>
+			<committed/>
+		</location>
+		<location id="id34" x="272" y="136">
+			<name x="221" y="93">ChangePower</name>
+			<committed/>
+		</location>
+		<location id="id35" x="68" y="204">
+			<committed/>
+		</location>
+		<location id="id36" x="-136" y="340">
+			<name x="-119" y="306">PlanExecuted</name>
+			<urgent/>
+		</location>
+		<location id="id37" x="467" y="204">
+			<urgent/>
+		</location>
+		<location id="id38" x="-136" y="34">
+			<name x="-153" y="-8">StartExecutor</name>
+			<urgent/>
+		</location>
+		<location id="id39" x="-136" y="204">
+			<name x="-119" y="187">Waiting</name>
+		</location>
+		<init ref="id39"/>
+		<transition>
+			<source ref="id38"/>
+			<target ref="id32"/>
+		</transition>
+		<transition>
+			<source ref="id33"/>
+			<target ref="id37"/>
+			<label kind="synchronisation" x="323" y="246">changeDistribution!</label>
+			<nail x="467" y="272"/>
+		</transition>
+		<transition>
+			<source ref="id35"/>
+			<target ref="id33"/>
+			<label kind="guard" x="85" y="246">step==CHANGE_DIST</label>
+			<nail x="68" y="272"/>
+		</transition>
+		<transition>
+			<source ref="id34"/>
+			<target ref="id37"/>
+			<label kind="synchronisation" x="323" y="110">changePower!</label>
+			<nail x="467" y="136"/>
+		</transition>
+		<transition>
+			<source ref="id35"/>
+			<target ref="id34"/>
+			<label kind="guard" x="76" y="110">step==CHANGE_POWER</label>
+			<nail x="68" y="136"/>
+		</transition>
+		<transition>
+			<source ref="id36"/>
+			<target ref="id39"/>
+			<label kind="synchronisation" x="-127" y="246">feedbackLoopCompleted!</label>
+			<label kind="assignment" x="-127" y="263">postProcessing()</label>
+		</transition>
+		<transition>
+			<source ref="id37"/>
+			<target ref="id32"/>
+			<label kind="guard" x="195" y="8">!allPlanStepsExecuted()</label>
+			<nail x="484" y="170"/>
+			<nail x="484" y="34"/>
+		</transition>
+		<transition>
+			<source ref="id37"/>
+			<target ref="id36"/>
+			<label kind="guard" x="195" y="314">allPlanStepsExecuted()</label>
+			<nail x="484" y="238"/>
+			<nail x="484" y="340"/>
+		</transition>
+		<transition>
+			<source ref="id32"/>
+			<target ref="id35"/>
+			<label kind="assignment" x="25" y="42">step = nextPlanStep(),
+link = nextStepLink(),
+newValue = nextStepValue()</label>
+			<nail x="17" y="170"/>
+		</transition>
+		<transition>
+			<source ref="id39"/>
+			<target ref="id38"/>
+			<label kind="synchronisation" x="-127" y="94">execute?</label>
+			<label kind="assignment" x="-127" y="110">initialize()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Effector</name>
+		<declaration>void setLinkPower(Link link, int newValue){
+    if (deltaIoT.motes[link.source].parents == 1 || deltaIoT.motes[link.source].links[0].destination == link.destination){
+        deltaIoT.motes[link.source].links[0].powerSetting = newValue;
+    }
+    else{
+        deltaIoT.motes[link.source].links[1].powerSetting = newValue;
+    }
+}
+
+void setLinkDist(Link link, int newValue){
+    if (deltaIoT.motes[link.source].parents == 1 || deltaIoT.motes[link.source].links[0].destination == link.destination){
+        deltaIoT.motes[link.source].links[0].distribution = newValue;
+    }
+    else{
+        deltaIoT.motes[link.source].links[1].distribution = newValue;
+    }
+}
+
+_Mote mote;
+int i;
+bool result;
+void verifyResults(){
+    result = false;
+    for(m:mote_ids){
+        mote = deltaIoT.motes[m];
+        for (i = 0; i &lt; mote.parents; i++){
+            if (mote.links[i].powerSetting &gt; 15 &amp;&amp; mote.links[i].powerSetting &lt; 0 ||
+                mote.links[i].distribution &gt;100 &amp;&amp; mote.links[i].distribution &lt;0)
+                return;
+        }
+    }
+    result = true;
+}
+
+bool resultsCorrect(){
+ return result;
+}</declaration>
+		<location id="id40" x="34" y="-195">
+			<name x="-34" y="-178">DistributionChanged</name>
+			<committed/>
+		</location>
+		<location id="id41" x="25" y="-280">
+			<name x="-25" y="-263">PowerChanged</name>
+			<committed/>
+		</location>
+		<location id="id42" x="-595" y="-136">
+			<name x="-620" y="-119">ResultsIncorrect</name>
+			<committed/>
+		</location>
+		<location id="id43" x="-442" y="-238">
+			<name x="-493" y="-221">ResultsCorrect</name>
+			<committed/>
+		</location>
+		<location id="id44" x="-595" y="-340">
+			<name x="-620" y="-391">ResultsVerified</name>
+			<committed/>
+		</location>
+		<location id="id45" x="-391" y="-340">
+			<name x="-450" y="-391">AdaptationCompleted</name>
+			<committed/>
+		</location>
+		<location id="id46" x="178" y="-238">
+			<name x="127" y="-119">StepApplied</name>
+			<committed/>
+		</location>
+		<location id="id47" x="-272" y="-238">
+			<name x="-289" y="-119">Waiting</name>
+		</location>
+		<init ref="id47"/>
+		<transition>
+			<source ref="id40"/>
+			<target ref="id46"/>
+			<nail x="144" y="-195"/>
+		</transition>
+		<transition>
+			<source ref="id41"/>
+			<target ref="id46"/>
+			<nail x="144" y="-280"/>
+		</transition>
+		<transition>
+			<source ref="id47"/>
+			<target ref="id40"/>
+			<label kind="synchronisation" x="-229" y="-238">changeDistribution?</label>
+			<label kind="assignment" x="-229" y="-221">setLinkDist(link, newValue)</label>
+			<nail x="-238" y="-195"/>
+		</transition>
+		<transition>
+			<source ref="id42"/>
+			<target ref="id47"/>
+			<nail x="-306" y="-136"/>
+			<nail x="-306" y="-204"/>
+		</transition>
+		<transition>
+			<source ref="id44"/>
+			<target ref="id42"/>
+			<label kind="guard" x="-586" y="-179">!resultsCorrect()</label>
+			<nail x="-595" y="-306"/>
+		</transition>
+		<transition>
+			<source ref="id44"/>
+			<target ref="id43"/>
+			<label kind="guard" x="-484" y="-306">resultsCorrect()</label>
+		</transition>
+		<transition>
+			<source ref="id45"/>
+			<target ref="id44"/>
+			<label kind="assignment" x="-535" y="-365">verifyResults()</label>
+		</transition>
+		<transition>
+			<source ref="id43"/>
+			<target ref="id47"/>
+		</transition>
+		<transition>
+			<source ref="id47"/>
+			<target ref="id45"/>
+			<label kind="synchronisation" x="-374" y="-365">feedbackLoopCompleted?</label>
+			<nail x="-306" y="-272"/>
+			<nail x="-306" y="-340"/>
+		</transition>
+		<transition>
+			<source ref="id46"/>
+			<target ref="id47"/>
+			<nail x="178" y="-136"/>
+			<nail x="-272" y="-136"/>
+		</transition>
+		<transition>
+			<source ref="id47"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-229" y="-322">changePower?</label>
+			<label kind="assignment" x="-229" y="-306">setLinkPower(link, newValue)</label>
+			<nail x="-238" y="-280"/>
+		</transition>
+	</template>
+	<template>
+		<name>Probe</name>
+		<declaration>// In DeltaIoT system topology cannot change so We will initialize it here.
+
+const int MAX_SAMPLES = 9;
+
+int sampleCount;
+int qualityCount;
+const _Link EMPTY_LINK={0,0,0,0,0,0,0};
+
+void initialize(){
+    sampleCount = 0;
+    qualityCount = 0;
+}
+DeltaIoT sample = {{5,25, 0},{
+
+// moteid, load, battery, parents, {source, destination, energy level, distribution}
+{2, 10, 11621, 1, 50, 0, {{2, 4, 15, 0, -2, 100,11},EMPTY_LINK}},
+{3, 10, 11592, 1, 50, 0, {{3, 1, 15, 0, -2, 100,11},EMPTY_LINK}},
+{4, 10, 11629, 1, 50, 0, {{4, 1, 15, 0, 10, 100,11},EMPTY_LINK}},
+{5, 10, 11659, 1, 50, 0, {{5, 9, 15, 0, 3, 100,11},EMPTY_LINK}},
+{6, 10, 11648, 1, 50, 0, {{6, 4, 15, 0, 2, 100,11},EMPTY_LINK}},
+{7, 10, 11607, 2, 50, 0, {{7, 2, 15, 0, 3, 100,11},{7, 3, 15, 2, -3, 100,11}}},
+{8, 10, 11838, 1, 50, 0, {{8, 1, 15, 0, 3, 100,11},EMPTY_LINK}},
+{9, 10, 11637, 1, 50, 0, {{9, 1, 15, 0, 1, 100,11},EMPTY_LINK}},
+{10, 10, 11878, 2, 50, 0, {{10, 6, 15, 0, -2, 100,11},{10, 5, 15, 0, -2, 100,11}}},
+{11, 10, 11640, 1, 50, 0, {{11, 7, 15, 0, -3, 100,11},EMPTY_LINK}},
+{12, 10, 11616, 2, 50, 0, {{12, 7, 15, 0, -2, 100,11},{12, 3, 15, 0, -2, 100,11}}},
+{13, 10, 11874, 1, 50, 0, {{13, 11, 15, 0, -2, 100,11},EMPTY_LINK}},
+{14, 10, 11868, 1, 50, 0, {{14, 12, 15, 0, -3, 100,11},EMPTY_LINK}},
+{15, 10, 11857, 1, 50, 0, {{15, 12, 15, 0, -1, 100,11},EMPTY_LINK}}}
+};
+
+void getSampleData(){
+    deltaIoT = sample;
+    if (sampleCount == 0){
+        deltaIoT = sample;
+    }
+    else if (sampleCount == 1){
+        // if system settings changed
+        deltaIoT.motes[8].links[1].powerSetting = 15;
+    }
+    else if (sampleCount == 2){
+        deltaIoT.qos.packetLoss += 20;
+    }
+    else if (sampleCount == 3){
+        deltaIoT.qos.energyConsumption += 5;
+    }
+    else if (sampleCount == 4){
+        deltaIoT.motes[2].links[0].SNR+=5;
+    }
+    else if (sampleCount == 5){
+        deltaIoT.motes[3].links[0].SNR-=5;
+    }
+    else if (sampleCount == 6){
+        deltaIoT.motes[2].dataProbability = 100;
+    }
+    else if (sampleCount == 7){
+        deltaIoT.motes[2].dataProbability = 0;
+    }
+    else if (sampleCount == 8){
+        // Do nothing so Monitor.Analysis not required can be reached
+    }
+
+}
+
+bool hasSampleData(){
+    return sampleCount &lt;= MAX_SAMPLES;
+}</declaration>
+		<location id="id48" x="-365" y="0">
+			<name x="-375" y="-34">End</name>
+			<urgent/>
+		</location>
+		<location id="id49" x="-204" y="-102">
+			<name x="-221" y="-136">Start</name>
+		</location>
+		<location id="id50" x="17" y="68">
+			<name x="-93" y="85">NetworkReconfigurationOngoing</name>
+		</location>
+		<location id="id51" x="-204" y="0">
+			<name x="-195" y="-25">Waiting</name>
+			<urgent/>
+		</location>
+		<location id="id52" x="229" y="0">
+			<name x="136" y="-85">NetworkDataCollected</name>
+			<committed/>
+		</location>
+		<init ref="id49"/>
+		<transition>
+			<source ref="id48"/>
+			<target ref="id48"/>
+			<nail x="-408" y="68"/>
+			<nail x="-331" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id51"/>
+			<target ref="id48"/>
+			<label kind="guard" x="-340" y="-25">!hasSampleData()</label>
+		</transition>
+		<transition>
+			<source ref="id49"/>
+			<target ref="id51"/>
+			<label kind="assignment" x="-280" y="-76">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id50"/>
+			<target ref="id51"/>
+			<label kind="synchronisation" x="-195" y="42">feedbackLoopCompleted?</label>
+			<nail x="-204" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id51"/>
+			<target ref="id52"/>
+			<label kind="guard" x="-68" y="-59">hasSampleData()</label>
+			<label kind="assignment" x="-68" y="-42">getSampleData(),
+sampleCount++</label>
+		</transition>
+		<transition>
+			<source ref="id52"/>
+			<target ref="id50"/>
+			<label kind="synchronisation" x="93" y="42">monitor!</label>
+			<nail x="229" y="68"/>
+		</transition>
+	</template>
+	<template>
+		<name>Verifier</name>
+		<declaration>
+const int MAX_QUALITY_SAMPLES = 4;
+int index;
+void initialize(){
+    index = 0;
+}
+
+bool hasAdaptationOption(){
+    return K.adaptationOptions.size &gt; index + 1;
+}
+
+// there are many type of estimates
+// 1. Full verification performed with some adaptation options that satisfy goals
+// 2. Full verificatio with same result of adaptation so Planner.InUse can be verified.
+// 3. Full verification performed with no adaptation option that satisfy goals 
+// 4. Full verification performed with no adaptation option that satisfy goals to check Planner.InUse
+// 5. Partial verification with some adaptation options that satisfy goals
+// 6. Partial verification performed with no adaptation option that satisfy goals
+// 7. Partial verification performed with no adaptation option that satisfy goals to check Planner.InUse
+
+
+void getSampleQualityEstimates(){
+
+    int i;
+
+if (index == 0 || index == 1){
+        // 1. Full verification performed with some adaptation options that satisfy goals
+        for(i = 0; i&lt;K.adaptationOptions.size; i++){
+            adaptationOptions.options[i].verificationResults.packetLoss = i%100;
+            adaptationOptions.options[i].verificationResults.energyConsumption = 20 + K.adaptationOptions.size%10;
+        }
+    }
+    else if (index == 2 || index == 3){
+        for(i = 0; i&lt;K.adaptationOptions.size; i++){
+            adaptationOptions.options[i].verificationResults.packetLoss = i%80 + 11;
+            adaptationOptions.options[i].verificationResults.energyConsumption =  20 + K.adaptationOptions.size%10;
+        }
+    }
+    else if (index == 4){
+        for(i = 0; i&lt;150; i++){
+            adaptationOptions.options[i].verificationResults.packetLoss = i%100;
+            adaptationOptions.options[i].verificationResults.energyConsumption = 20 + K.adaptationOptions.size%10;
+        }
+    }
+    else if (index == 5 || index == 6){
+        for(i = 0; i&lt;150; i++){
+            adaptationOptions.options[i].verificationResults.packetLoss = i%80 + 11;
+            adaptationOptions.options[i].verificationResults.energyConsumption = 20 + K.adaptationOptions.size%10;
+        }
+    }
+ 
+    if (index == MAX_QUALITY_SAMPLES)
+        index = 0;
+    else
+        index++;
+}
+
+bool completeVerificationResults(){
+    return index &lt; 4;
+}</declaration>
+		<location id="id53" x="476" y="-51">
+			<name x="357" y="-102">VerificationDone</name>
+			<committed/>
+		</location>
+		<location id="id54" x="297" y="-187">
+			<name x="229" y="-238">VerificationInterrupted</name>
+			<committed/>
+		</location>
+		<location id="id55" x="221" y="-51">
+			<name x="144" y="-102">VerificationCompleted</name>
+			<committed/>
+		</location>
+		<location id="id56" x="-68" y="-51">
+			<name x="-59" y="-102">CheckVerificationResults</name>
+			<committed/>
+		</location>
+		<location id="id57" x="153" y="-187">
+			<name x="76" y="-238">PartiallyVerified</name>
+		</location>
+		<location id="id58" x="221" y="68">
+			<name x="179" y="85">StartVerifier</name>
+			<committed/>
+		</location>
+		<location id="id59" x="391" y="68">
+			<name x="365" y="85">Waiting</name>
+		</location>
+		<init ref="id59"/>
+		<transition>
+			<source ref="id55"/>
+			<target ref="id53"/>
+			<label kind="synchronisation" x="280" y="-76">verificationCompleted!</label>
+		</transition>
+		<transition>
+			<source ref="id54"/>
+			<target ref="id53"/>
+			<label kind="synchronisation" x="314" y="-212">verificationInterrupted!</label>
+			<nail x="476" y="-187"/>
+		</transition>
+		<transition>
+			<source ref="id56"/>
+			<target ref="id55"/>
+			<label kind="guard" x="-51" y="-76">completeVerificationResults()</label>
+			<nail x="-34" y="-51"/>
+		</transition>
+		<transition>
+			<source ref="id53"/>
+			<target ref="id59"/>
+			<nail x="476" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id57"/>
+			<target ref="id54"/>
+			<label kind="synchronisation" x="170" y="-212">stopVerification?</label>
+		</transition>
+		<transition>
+			<source ref="id56"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-68" y="-212">!completeVerificationResults()</label>
+			<nail x="-68" y="-187"/>
+		</transition>
+		<transition>
+			<source ref="id58"/>
+			<target ref="id56"/>
+			<label kind="assignment" x="-51" y="42">getSampleQualityEstimates()</label>
+			<nail x="-68" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id59"/>
+			<target ref="id58"/>
+			<label kind="synchronisation" x="255" y="42">invokeVerifier?</label>
+		</transition>
+	</template>
+	<system>
+system
+//Probe,Effector,Verifier,
+Monitor,Analyzer, Planner, Executor;</system>
+	<queries>
+		<query>
+			<formula>Probe.NetworkDataCollected --&gt; Monitor.KnowledgeUpdated
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Monitor.AnalysisRequired --&gt; Analyzer.AnalysisDone
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.AdaptationNeeded --&gt; Verifier.VerificationDone
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.QualityEstimatesReady --&gt; Planner.ComposeAdaptationPlan | Planner.BestOptionInUse
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Planner.ChangePower --&gt; Executor.ChangePower
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Planner.ChangeDistribution --&gt; Executor.ChangeDistribution
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Executor.ChangePower --&gt; Effector.PowerChanged
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Executor.ChangeDistribution --&gt; Effector.DistributionChanged
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Planner.PlanCreated --&gt; Executor.PlanExecuted
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Executor.PlanExecuted --&gt; Effector.AdaptationCompleted
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.VerificationTimeExceeded --&gt; Analyzer.UseFailSafeStrategy
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>A[] !Effector.ResultsIncorrect
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Planner.UseFailSafeStrategy
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>A[] not deadlock
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>A[] Effector.PowerChanged imply link.powerSetting &lt;= 15
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.RuntimeVerification --&gt; Planner.PlanCreated | Planner.BestOptionInUse
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.QualityAnalysis --&gt; Verifier.StartVerifier
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Planner.PlanCreated --&gt; Executor.PlanExecuted
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Executor.ChangePower --&gt; Effector.StepApplied
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Executor.PlanExecuted
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Analyzer.VerificationTimeExceeded --&gt; Analyzer.UseFailSafeStrategy
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>Executor.PlanExecuted --&gt; Effector.ResultsVerified
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.UseFailSafeStrategy
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.resultSystemSettings
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.resultEnergyConsumption
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.resultPacketLoss
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.resultMotesTraffic
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Analyzer.resultLinksSNR
+			</formula>
+			<comment>
+			</comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Planner.BestOptionInUse
+			</formula>
+			<comment>
+			</comment>
+		</query>
+	</queries>
+</nta>

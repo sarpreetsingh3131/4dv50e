@@ -7,3 +7,11 @@ services:
       - "5000:5000"
     volumes:
       - "./machine_learner:/opt/machine_learner"
+
+  simulation:
+    build: ./simulation
+    depends_on:
+      - "machine_learner"
+    network_mode: host
+    volumes:
+      - "./simulation:/opt/simulation"

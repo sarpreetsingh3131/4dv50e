@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// Service Configuration
+
+const int MAX_MOTES = 37;
+const int MAX_LINKS_PER_MOTE = 2;
+const int MAX_LINKS = 43;
+typedef int[2, MAX_MOTES] mote_ids;
+typedef int[1, MAX_MOTES] d_id;
+const int routerId = 1;
+const int MAX_QUEUE = 60;
+const int MAX_SLOTS = 40;
+const int MAX_LOAD = 10;
+int EMPTY = 0;
+int periods = 0;
+const int THRESHOLD = 1;
+
+//int queue[mote_ids];
+
+typedef struct {
+    int source;
+    int destination;
+    int powerSetting;
+    int distribution;
+}Link;
+
+Link link;
+d_id rId;
+
+typedef struct {
+    int moteId;
+    int load;
+    int energyLevel;
+    int parents;
+    int queueSize;
+    Link links[MAX_LINKS_PER_MOTE];
+}Mote;
+
+const Link EMPTY_LINK={0,0,0,0};
+
+typedef struct {
+    Mote motes[mote_ids];
+}ManagedSystem;
+
+typedef struct {
+    int packetLoss;
+    int energyConsumption;
+} Qualities;
+
+typedef struct{
+    int source;
+    int destination;
+    int SNR;
+} LinkSNR;
+
+typedef struct{
+    int mote;
+    int traffic; 
+} MoteTraffic;
+
+typedef struct {
+    LinkSNR linksSNR[MAX_LINKS];
+    MoteTraffic motesTraffic[mote_ids];
+} Environment;
+/*
+typedef struct {
+    ManagedSystem deltaIoT;
+    Qualities qualities;
+    Environment environment;
+} Configuration;
+*/
+//&lt;Configuration&gt;
+ManagedSystem deltaIoT = {{
+{2, 10, 11744, 1, 0,{{2, 3, 15, 100},{0, 0, 0, 0}}},
+{3, 10, 11744, 2, 0,{{3, 4, 15, 0},{3, 6, 15, 100}}},
+{4, 10, 11744, 1, 0,{{4, 5, 15, 100},{0, 0, 0, 0}}},
+{5, 10, 11744, 1, 0,{{5, 1, 15, 100},{0, 0, 0, 0}}},
+{6, 10, 11744, 1, 0,{{6, 5, 13, 100},{0, 0, 0, 0}}},
+{7, 10, 11744, 2, 0,{{7, 8, 0, 50},{7, 22, 15, 50}}},
+{8, 10, 11744, 1, 0,{{8, 21, 15, 100},{0, 0, 0, 0}}},
+{9, 10, 11744, 1, 0,{{9, 2, 0, 100},{0, 0, 0, 0}}},
+{10, 10, 11744, 1, 0,{{10, 11, 11, 100},{0, 0, 0, 0}}},
+{11, 10, 11744, 1, 0,{{11, 12, 15, 100},{0, 0, 0, 0}}},
+{12, 10, 11744, 1, 0,{{12, 1, 15, 100},{0, 0, 0, 0}}},
+{13, 10, 11744, 1, 0,{{13, 14, 15, 100},{0, 0, 0, 0}}},
+{14, 10, 11744, 2, 0,{{14, 25, 10, 50},{14, 26, 15, 50}}},
+{15, 10, 11744, 1, 0,{{15, 10, 12, 100},{0, 0, 0, 0}}},
+{16, 10, 11744, 2, 0,{{16, 17, 15, 50},{16, 19, 15, 50}}},
+{17, 10, 11744, 1, 0,{{17, 18, 4, 100},{0, 0, 0, 0}}},
+{18, 10, 11744, 1, 0,{{18, 1, 3, 100},{0, 0, 0, 0}}},
+{19, 10, 11744, 1, 0,{{19, 18, 15, 100},{0, 0, 0, 0}}},
+{20, 10, 11744, 1, 0,{{20, 1, 15, 100},{0, 0, 0, 0}}},
+{21, 10, 11744, 1, 0,{{21, 1, 15, 100},{0, 0, 0, 0}}},
+{22, 10, 11744, 2, 0,{{22, 21, 15, 50},{22, 23, 15, 50}}},
+{23, 10, 11744, 1, 0,{{23, 21, 15, 100},{0, 0, 0, 0}}},
+{24, 10, 11744, 2, 0,{{24, 21, 0, 50},{24, 23, 15, 50}}},
+{25, 10, 11744, 1, 0,{{25, 10, 0, 100},{0, 0, 0, 0}}},
+{26, 10, 11744, 1, 0,{{26, 15, 15, 100},{0, 0, 0, 0}}},
+{27, 10, 11744, 1, 0,{{27, 28, 15, 100},{0, 0, 0, 0}}},
+{28, 10, 11744, 1, 0,{{28, 20, 0, 100},{0, 0, 0, 0}}},
+{29, 10, 11744, 1, 0,{{29, 20, 15, 100},{0, 0, 0, 0}}},
+{30, 10, 11744, 1, 0,{{30, 31, 15, 100},{0, 0, 0, 0}}},
+{31, 10, 11744, 1, 0,{{31, 1, 15, 100},{0, 0, 0, 0}}},
+{32, 10, 11744, 1, 0,{{32, 31, 15, 100},{0, 0, 0, 0}}},
+{33, 10, 11744, 1, 0,{{33, 29, 15, 100},{0, 0, 0, 0}}},
+{34, 10, 11744, 1, 0,{{34, 33, 15, 100},{0, 0, 0, 0}}},
+{35, 10, 11744, 2, 0,{{35, 27, 1, 50},{35, 30, 15, 50}}},
+{36, 10, 11744, 1, 0,{{36, 32, 15, 100},{0, 0, 0, 0}}},
+{37, 10, 11744, 1, 0,{{37, 32, 15, 100},{0, 0, 0, 0}}}
+}};
+Environment environment = {
+{{2, 3, -1},{3, 4, -4},{3, 6, 5},{4, 5, -1},{5, 1, -4},{6, 5, 0},{7, 8, 0},{7, 22, 6},{8, 21, -4},{9, 2, 1},{10, 11, 0},{11, 12, -2},{12, 1, 1},{13, 14, -2},{14, 25, 0},{14, 26, -4},{15, 10, 0},{16, 17, -4},{16, 19, 8},{17, 18, 0},{18, 1, 1},{19, 18, -6},{20, 1, 0},{21, 1, -2},{22, 21, -2},{22, 23, -6},{23, 21, -1},{24, 21, 0},{24, 23, 2},{25, 10, 2},{26, 15, -7},{27, 28, -4},{28, 20, 1},{29, 20, -6},{30, 31, -3},{31, 1, -3},{32, 31, -4},{33, 29, -2},{34, 33, -7},{35, 27, 0},{35, 30, 1},{36, 32, -5},{37, 32, -6}},
+{{2, 100},{3, 50},{4, 100},{5, 50},{6, 50},{7, 100},{8, 50},{9, 100},{10, 50},{11, 50},{12, 50},{13, 100},{14, 50},{15, 100},{16, 50},{17, 100},{18, 100},{19, 50},{20, 50},{21, 100},{22, 100},{23, 50},{24, 50},{25, 50},{26, 50},{27, 50},{28, 100},{29, 50},{30, 50},{31, 100},{32, 50},{33, 50},{34, 100},{35, 50},{36, 50},{37, 50}}}; 
+//&lt;/Configuration&gt;
+const Qualities verificationResults = {0,0};
+//Configuration configuration = {deltaIoT, verificationResults, environment};
+
+//&lt;TOPO&gt;
+int topology[d_id] = {7,9,13,16,24,34,35,36,37,2,8,14,17,19,22,27,30,32,33,3,18,23,25,26,28,29,31,4,6,15,20,21,5,10,11,12,1};
+//&lt;/Topology&gt;
+broadcast chan data[d_id], turn[d_id], done, sendPacketsToLink;
+
+double batteryUsage;
+int expected;
+
+int pTraffic(int moteId){
+    return environment.motesTraffic[moteId].traffic;
+}
+
+int getSNR(int source, int dest){
+    int i;
+    for (i = 0; i &lt; MAX_LINKS; i++){
+        if (environment.linksSNR[i].source == source &amp; environment.linksSNR[i].destination == dest){
+            return environment.linksSNR[i].SNR;
+        }
+    }
+    return -50;
+}
+
+const int MAX_RUN = 30;
+int expectedPackets[MAX_RUN];
+int queueLost[MAX_RUN];
+int recvdPackets[MAX_RUN];
+
+typedef struct{
+    int period;
+}Packet;
+Packet packet;
+
+typedef struct{
+    Packet packets[MAX_QUEUE];
+    int size;
+}Queue;
+
+typedef struct{
+    Packet packets[MAX_LOAD];
+    int size;
+}BufferQ;
+
+BufferQ bufferQ;
+typedef struct{
+    Packet packets[MAX_SLOTS];
+    int size;
+}SendQ;
+SendQ sendQ, linkQ;
+
+
+//Queue queue[mote_ids];
+
+void addBuffer(SendQ &amp;sendQ, BufferQ &amp;bufferQ){
+    int i;
+
+    for (i = 0; i &lt; bufferQ.size; i++){
+        sendQ.packets[i] = bufferQ.packets[i];
+    }
+    sendQ.size = bufferQ.size;
+    expectedPackets[periods]+= bufferQ.size;
+}
+
+void addRecvQ(SendQ &amp;sendQ, Queue &amp;recvQ){
+    int i, r = 0;
+    int initialSize = sendQ.size;
+    int endSize = recvQ.size + initialSize;
+    
+    if (recvQ.size == 0) return;
+    if (endSize &gt; MAX_SLOTS){
+        endSize = MAX_SLOTS;
+    }
+
+    
+    for (i = initialSize; i &lt; endSize; i++){
+        sendQ.packets[i] = recvQ.packets[r++];
+    }
+    sendQ.size = endSize;
+    
+    // Move recv queue packets to head of queue
+    i = 0;
+    if (r &lt;= recvQ.size){
+        endSize = recvQ.size - r;
+        while (r &lt; recvQ.size){
+            if (periods - recvQ.packets[r].period &gt;= THRESHOLD){
+                r++;
+                endSize--;
+            }
+            else{
+                recvQ.packets[i++] = recvQ.packets[r++];
+            }
+        }
+        recvQ.size = endSize;
+    }
+}
+
+void sendPackets(int load, SendQ &amp;sendQ, SendQ &amp;linkQ){
+    int i;
+    for (i = 0; i &lt; load; i++){
+        linkQ.packets[i] = sendQ.packets[i];
+    }
+    linkQ.size = load;
+    if (load == sendQ.size) {sendQ.size = 0; return;}
+    if (load != sendQ.size){
+        int moveL = load; // move location
+        int newSize = sendQ.size - load;
+        for(i = 0; i &lt; newSize; i++){
+            sendQ.packets[i] = sendQ.packets[moveL++];
+        }
+        sendQ.size = newSize;
+    }
+}</declaration>
+	<template>
+		<name>MoteAutomaton</name>
+		<parameter>mote_ids moteId</parameter>
+		<declaration>int parent = 0;
+//Link link;
+int parentLoad;
+//int queue;
+Queue recvQ;
+
+Mote mote;
+
+bool hasLink(){
+    int i;
+    for(i = parent+1; i &lt; mote.parents; i++){
+        if (mote.links[i] != EMPTY_LINK){
+            return true;
+        }
+    }
+    return false;
+}
+
+int calcParentLoad(Link link){
+    // if there is no next link then current load should be used for this link
+    if (!hasLink())
+        return sendQ.size;
+    else if (sendQ.size == 0)
+        return 0;
+    else
+        return sendQ.size * link.distribution/100;
+}
+
+Link selectNextLink(){
+    int i;
+    for(i = parent+1; i &lt; mote.parents; i++){
+        if (mote.links[i] != EMPTY_LINK){
+            parent = i;
+            return mote.links[i];
+        }
+    }
+    return EMPTY_LINK;
+}
+
+void createBuffer(){
+    //return mote.load;
+    int i;
+    bufferQ.size = mote.load;
+    for (i = 0; i &lt; mote.load; i++){
+        bufferQ.packets[i].period = periods;
+    }
+}
+
+void initialize(){
+    mote = deltaIoT.motes[moteId];
+    parent = -1;
+    createBuffer();
+    sendQ.size = 0;
+    linkQ.size = 0;
+}
+
+void receivePackets(Packet &amp;packet){
+    if (recvQ.size &lt; MAX_QUEUE){
+        recvQ.packets[recvQ.size] = packet;
+        recvQ.size++;
+    }
+}
+</declaration>
+		<location id="id0" x="-212" y="85">
+			<name x="-195" y="59">MoteActive</name>
+			<committed/>
+		</location>
+		<location id="id1" x="102" y="85">
+			<name x="85" y="51">Turn</name>
+			<committed/>
+		</location>
+		<location id="id2" x="357" y="161">
+			<name x="263" y="178">PacketsReceived</name>
+			<committed/>
+		</location>
+		<location id="id3" x="-127" y="-34">
+			<name x="-170" y="-161">CalculateLoad</name>
+			<committed/>
+		</location>
+		<location id="id4" x="391" y="-34">
+			<name x="247" y="-161">SendEnergyCalculated</name>
+			<urgent/>
+		</location>
+		<location id="id5" x="153" y="-34">
+			<name x="110" y="-161">SendPackets</name>
+			<committed/>
+		</location>
+		<location id="id6" x="-272" y="-34">
+			<name x="-289" y="-161">ForEachLink</name>
+			<committed/>
+		</location>
+		<location id="id7" x="255" y="85">
+			<name x="245" y="51">Idle</name>
+		</location>
+		<branchpoint id="id8" x="-51" y="85">
+		</branchpoint>
+		<init ref="id7"/>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="-42" y="93">addBuffer(sendQ, bufferQ),
+addRecvQ(sendQ, recvQ)</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id6"/>
+			<nail x="-272" y="85"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-212" y="153">addBuffer(sendQ, bufferQ),
+addRecvQ(sendQ, recvQ)</label>
+			<label kind="probability" x="-212" y="136">pTraffic(moteId)</label>
+			<nail x="-51" y="127"/>
+			<nail x="-212" y="127"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-212" y="17">addRecvQ(sendQ, recvQ)</label>
+			<label kind="probability" x="-212" y="0">100-pTraffic(moteId)</label>
+			<nail x="-51" y="42"/>
+			<nail x="-212" y="42"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="136" y="42">turn[moteId]?</label>
+			<label kind="assignment" x="136" y="59">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id7"/>
+			<nail x="357" y="119"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="204" y="119">data[moteId]?</label>
+			<label kind="assignment" x="178" y="136">receivePackets(packet)</label>
+			<nail x="153" y="119"/>
+			<nail x="153" y="161"/>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id5"/>
+			<label kind="assignment" x="-25" y="-85">parentLoad =
+calcParentLoad(link)</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id7"/>
+			<label kind="guard" x="289" y="59">!hasLink()</label>
+			<label kind="synchronisation" x="289" y="42">done!</label>
+			<nail x="391" y="85"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id6"/>
+			<label kind="guard" x="297" y="-136">hasLink()</label>
+			<nail x="391" y="-136"/>
+			<nail x="-272" y="-136"/>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="178" y="-102">sendPacketsToLink!</label>
+			<label kind="assignment" x="178" y="-85">sendPackets(parentLoad,
+sendQ, linkQ)</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id3"/>
+			<label kind="assignment" x="-263" y="-85">link = 
+selectNextLink()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Gateway</name>
+		<declaration>
+double avgPacketLoss;
+double cumulativeSent;
+double cumulativeReceived;
+
+
+void recvPackets(Packet &amp;packet){
+    recvdPackets[packet.period]++;
+}
+</declaration>
+		<location id="id9" x="-170" y="0">
+			<name x="-153" y="-8">Turn</name>
+			<committed/>
+		</location>
+		<location id="id10" x="26" y="0">
+		</location>
+		<init ref="id10"/>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-187" y="34">done!</label>
+			<nail x="-170" y="34"/>
+			<nail x="1" y="34"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-178" y="-127">turn[routerId]?</label>
+			<label kind="assignment" x="-178" y="-110">cumulativeSent = cumulativeSent + expectedPackets[periods],
+cumulativeReceived = cumulativeReceived + recvdPackets[periods],
+avgPacketLoss = 1 - (cumulativeReceived / cumulativeSent),
+periods++</label>
+			<nail x="1" y="-34"/>
+			<nail x="-170" y="-34"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="51" y="42">data[routerId]?</label>
+			<label kind="assignment" x="51" y="59">recvPackets(packet)</label>
+			<nail x="51" y="-34"/>
+			<nail x="161" y="-34"/>
+			<nail x="161" y="34"/>
+			<nail x="51" y="34"/>
+		</transition>
+	</template>
+	<template>
+		<name>System</name>
+		<declaration>clock t;
+int mId;
+int moteId;
+
+void initialize(){
+    mId = 1;
+}
+
+bool hasTurn(){
+    return mId != MAX_MOTES+1;
+}
+
+int nextTurn(){
+   return topology[mId++]; 
+}</declaration>
+		<location id="id11" x="85" y="-34">
+			<name x="25" y="-127">MoteDone</name>
+			<committed/>
+		</location>
+		<location id="id12" x="0" y="-34">
+		</location>
+		<location id="id13" x="-127" y="-34">
+			<name x="-161" y="-127">TakeTurn</name>
+			<committed/>
+		</location>
+		<location id="id14" x="-238" y="-34">
+			<name x="-263" y="-127">ForEachMote</name>
+			<committed/>
+		</location>
+		<location id="id15" x="-238" y="34">
+			<name x="-289" y="51">StartVerification</name>
+			<label kind="invariant" x="-289" y="25">t&lt;=1</label>
+		</location>
+		<init ref="id15"/>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id15"/>
+			<label kind="guard" x="0" y="-9">!hasTurn()</label>
+			<label kind="assignment" x="0" y="8">t=0</label>
+			<nail x="85" y="34"/>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id14"/>
+			<label kind="guard" x="8" y="-93">hasTurn()</label>
+			<nail x="85" y="-102"/>
+			<nail x="-238" y="-102"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="25" y="-59">done?</label>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-110" y="-59">turn[moteId]!</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id13"/>
+			<label kind="assignment" x="-221" y="-76">moteId = 
+nextTurn()</label>
+		</transition>
+		<transition>
+			<source ref="id15"/>
+			<target ref="id14"/>
+			<label kind="guard" x="-229" y="-17">t &gt;=1</label>
+			<label kind="assignment" x="-229" y="0">initialize()</label>
+		</transition>
+	</template>
+	<template>
+		<name>LinkAutomaton</name>
+		<declaration>int packetLoss;
+
+int totalPackets;
+int count = 0;
+//Packet packet;
+SendQ q;
+void setPackets(SendQ &amp;linkP){
+    q = linkP;
+}
+
+bool hasPacket(){
+    return count &lt; q.size;
+}
+
+void selectPacket(){
+    packet = q.packets[count++];
+}
+
+int emptyQ(){
+    return q.size == 0;
+}
+
+void removePacket(){
+    //count--;
+}
+
+void setReceiver(){
+    rId = link.destination;
+}
+
+void selectLinkPacketLoss(){
+    packetLoss = 0;//link.packetLoss;
+}
+
+void reset(){
+    count = 0;
+    q.size = 0;
+}
+</declaration>
+		<location id="id16" x="340" y="68">
+			<committed/>
+		</location>
+		<location id="id17" x="204" y="0">
+			<name x="170" y="-42">Successful</name>
+			<committed/>
+		</location>
+		<location id="id18" x="204" y="136">
+			<name x="187" y="162">Failed</name>
+			<committed/>
+		</location>
+		<location id="id19" x="476" y="68">
+			<committed/>
+		</location>
+		<location id="id20" x="-68" y="68">
+			<committed/>
+		</location>
+		<location id="id21" x="-68" y="204">
+		</location>
+		<branchpoint id="id22" x="68" y="68">
+		</branchpoint>
+		<init ref="id21"/>
+		<transition>
+			<source ref="id20"/>
+			<target ref="id22"/>
+			<label kind="guard" x="-50" y="34">!emptyQ()</label>
+			<label kind="synchronisation" x="-50" y="51">data[rId]!</label>
+			<label kind="assignment" x="-50" y="68">selectPacket()</label>
+		</transition>
+		<transition>
+			<source ref="id20"/>
+			<target ref="id21"/>
+			<label kind="guard" x="-144" y="25">emptyQ()</label>
+			<nail x="-136" y="68"/>
+			<nail x="-136" y="204"/>
+		</transition>
+		<transition>
+			<source ref="id18"/>
+			<target ref="id16"/>
+		</transition>
+		<transition>
+			<source ref="id16"/>
+			<target ref="id19"/>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id16"/>
+			<label kind="synchronisation" x="246" y="0">data[rId]!</label>
+		</transition>
+		<transition>
+			<source ref="id19"/>
+			<target ref="id20"/>
+			<label kind="guard" x="391" y="-59">hasPacket()</label>
+			<nail x="476" y="-68"/>
+			<nail x="-68" y="-68"/>
+		</transition>
+		<transition>
+			<source ref="id19"/>
+			<target ref="id21"/>
+			<label kind="guard" x="391" y="161">!hasPacket()</label>
+			<label kind="assignment" x="391" y="178">reset()</label>
+			<nail x="476" y="204"/>
+		</transition>
+		<transition>
+			<source ref="id22"/>
+			<target ref="id18"/>
+			<label kind="probability" x="42" y="102">packetLoss</label>
+		</transition>
+		<transition>
+			<source ref="id22"/>
+			<target ref="id17"/>
+			<label kind="probability" x="34" y="8">100-packetLoss</label>
+		</transition>
+		<transition>
+			<source ref="id21"/>
+			<target ref="id20"/>
+			<label kind="synchronisation" x="-59" y="127">sendPacketsToLink?</label>
+			<label kind="assignment" x="-59" y="144">setPackets(linkQ),
+selectLinkPacketLoss(),
+setReceiver()</label>
+		</transition>
+	</template>
+	<system>system MoteAutomaton, Gateway,System, LinkAutomaton;</system>
+	<queries>
+		<query>
+			<formula>simulate 1[&lt;=29]{Gateway.avgPacketLoss}
+			</formula>
+			<comment>simulate 1[&lt;=29]{Gateway.cumulativeSent, Gateway.cumulativeReceived}
+
+simulate 1[&lt;=29]{recvdPackets[0], expectedPackets[0], recvdPackets[1], expectedPackets[1]}
+			</comment>
+		</query>
+	</queries>
+</nta>
