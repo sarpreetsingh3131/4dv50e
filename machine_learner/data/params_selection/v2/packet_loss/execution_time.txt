@@ -1,0 +1,11 @@
+
+hidden_layer=1,execution_time_in_sec=61.32228875160217
+hidden_layer=2,execution_time_in_sec=38.03722524642944
+hidden_layer=3,execution_time_in_sec=65.23389673233032
+hidden_layer=4,execution_time_in_sec=50.533080101013184
+hidden_layer=5,execution_time_in_sec=56.48978304862976
+hidden_layer=6,execution_time_in_sec=90.0785140991211
+hidden_layer=7,execution_time_in_sec=78.0464460849762
+hidden_layer=8,execution_time_in_sec=90.09407806396484
+hidden_layer=9,execution_time_in_sec=101.52900314331055
+hidden_layer=10,execution_time_in_sec=126.72389388084412
