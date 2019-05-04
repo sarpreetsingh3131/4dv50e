@@ -87,8 +87,6 @@ def v2_testing(dataset, repository):
             if len(relevant_features) > 0:
                 transformed_features = relevant_features
                 indexes = relevant_indexes
-            
-            print(len(relevant_features), len(relevant_indexes))
 
         repository.save_models(models, 'v2')
         return {'indexes': indexes}
