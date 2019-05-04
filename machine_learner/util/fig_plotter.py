@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.patches as mpatches
 
 
-version = 'v2'
+version = 'v1'
 
 
 def plot_learning_vs_no_learning():
@@ -318,9 +318,43 @@ def plot(x, packet_loss, latency, x_label):
     plt.ylabel('Accuracy (%)\n(Total Samples = 1000,\nTraining Samples = 100)\n')
     plt.grid()
 
+
+def plot_selected_adaptation_options(cycle):
+    data = json.load(open('data/selected_adaptation_options/' + version + '/adaptation_cycle_' + str(cycle) + '.json'))
+    selected_options = {
+        'packet_loss': [],
+        'latency': []
+    }
+
+    for index in data['indexes_of_adaptation_options_selected_by_learner']:
+        selected_options['packet_loss'].append(data['packet_loss'][index])
+        selected_options['latency'].append(data['latency'][index])
+
+    plt.figure()
+    plt.scatter(data['packet_loss'], data['latency'], color='orange')
+    plt.scatter(selected_options['packet_loss'], selected_options['latency'], color='green')
+    plt.plot([10, 10], [0, max(data['latency'])], color='red')
+    plt.plot([0, max(data['packet_loss'])], [5, 5], color='red')
+    plt.xlabel('Packet Loss (%)')
+    plt.ylabel('Latency (%)')
+    plt.legend(
+        bbox_to_anchor=(0., 1.02, 1., .102),
+        ncol=2,
+        mode='expand',
+        borderaxespad=0.,
+        handles=[
+            mpatches.Patch(color='orange', label='Adaptation Options'),
+            mpatches.Patch(color='green', label='Selected Adaptation Options')
+        ]
+    )
+    plt.show()
+
 #plot_learning_vs_no_learning()
-plot_learning_models_time()
+#plot_learning_models_time()
 #plot_uncertainties_profiles()
 #plot_training_selection()
 #plot_offline_activities_time()
 #plot_offline_activities()
+
+#for i in range(300, 0, -1):
+#    plot_selected_adaptation_options(i)
