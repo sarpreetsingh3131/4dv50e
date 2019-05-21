@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
-import json
 import pandas as pd
 from ast import literal_eval
 import json
 import numpy as np
 import matplotlib.patches as mpatches
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
 
 
-version = 'v1'
+version = 'v1'  # v1, v2
 
 
 def plot_learning_vs_no_learning():
@@ -103,42 +103,47 @@ def plot_learning_vs_no_learning():
 
 
 def plot_learning_models_time():
-    initial_training_time = []
-    training_time = []
-    prediction_time = []
-
-    file_data = open('data/controlled_experiment/' + version + '/learning.txt').readlines()
-    file_data = [x.strip() for x in file_data]
-
-    for line in file_data:
-        content = line.split(';')
-
-        if len(content) == 9:
-            initial_training_time.append(float(content[4]) / 1000)
-        elif len(content) == 11:
-            prediction_time.append(float(content[2]) / 1000)
-            training_time.append(float(content[6]) / 1000)
-
-    print({
-        'avg_initial_training_time': np.average(initial_training_time),
-        'avg_training_time': np.average(training_time),
-        'avg_prediction_time': np.average(prediction_time)
-    })
-
     plt.figure()
-    boxplot = plt.boxplot(
-        [initial_training_time, prediction_time, training_time],
-        positions=[1, 2, 3],
-        widths=.3,
-        labels=['Initial Training', 'Prediction', 'Training After Prediction'],
-        patch_artist=True,
-        medianprops={'color': 'black', 'linewidth': 2}
-    )
 
-    for index, box in enumerate(boxplot['boxes']):
-        box.set(facecolor=['orange', 'dodgerblue', 'green'][index])
+    for plt_index, v in enumerate(['v1', 'v2']):
+        initial_training_time = []
+        training_time = []
+        prediction_time = []
+        file_data = open('data/controlled_experiment/' + v + '/learning.txt').readlines()
+        file_data = [x.strip() for x in file_data]
 
-    plt.ylabel('Time (sec)')
+        for line in file_data:
+            content = line.split(';')
+
+            if len(content) == 9:
+                print('ini')
+                initial_training_time.append(float(content[4]) / 1000)
+            elif len(content) == 11:
+                prediction_time.append(float(content[2]) / 1000)
+                training_time.append(float(content[6]) / 1000)
+
+        print({
+            'version': v,
+            'avg_initial_training_time': np.average(initial_training_time),
+            'avg_training_time': np.average(training_time),
+            'avg_prediction_time': np.average(prediction_time)
+        })
+
+        plt.subplot(1, 2, plt_index + 1)
+
+        boxplot = plt.boxplot(
+            [initial_training_time, prediction_time, training_time],
+            positions=[1, 2, 3],
+            widths=.3,
+            labels=['Initial Training', 'Prediction', 'Training After Prediction'],
+            patch_artist=True,
+            medianprops={'color': 'black', 'linewidth': 2}
+        )
+
+        for index, box in enumerate(boxplot['boxes']):
+            box.set(facecolor=['orange', 'dodgerblue', 'green'][index])
+
+        plt.ylabel('Time (sec)')
     plt.show()
 
 
@@ -180,6 +185,7 @@ def plot_training_selection():
 
     plt.ylabel('Accuracy (%)')
     plt.xlabel('Training Samples\n(Total Samples = ' + str(data[0]['total_samples']) + ')')
+    plt.xticks(data[0]['training_samples'])
     plt.ylim(top=1.0, bottom=0.0)
     plt.grid()
     plt.legend()
@@ -197,7 +203,7 @@ def plot_offline_activities_time():
             training_cycles_selection_time += item['execution_time_in_sec']
 
         for dir_name in ['packet_loss', 'latency']:
-            file_data = open('data/params_selection/' + v + '/' + dir_name + '/execution_time.txt').readlines()
+            file_data = open('data/params_scaler_selection/' + v + '/' + dir_name + '/execution_time.txt').readlines()
             file_data = [x.strip() for x in file_data]
             
             for line in file_data:
@@ -231,7 +237,7 @@ def plot_offline_activities_time():
         handles=[
             mpatches.Patch(color='dodgerblue', label='Activation Function Selection'),
             mpatches.Patch(color='orange', label='Hidden Layers Selection'),
-            mpatches.Patch(color='c', label='Traning Cycles Selection'),
+            mpatches.Patch(color='c', label='Training Cycles Selection'),
         ]
     )
     plt.show()
@@ -320,13 +326,13 @@ def plot(x, packet_loss, latency, x_label):
 
 
 def plot_selected_adaptation_options(cycle):
-    data = json.load(open('data/selected_adaptation_options/' + version + '/adaptation_cycle_' + str(cycle) + '.json'))
+    data = json.load(open('data/selected_adaptation_options/' + version + '/cycle_' + str(cycle) + '.json'))
     selected_options = {
         'packet_loss': [],
         'latency': []
     }
 
-    for index in data['indexes_of_adaptation_options_selected_by_learner']:
+    for index in data['indexes_of_selected_adaptation_options']:
         selected_options['packet_loss'].append(data['packet_loss'][index])
         selected_options['latency'].append(data['latency'][index])
 
@@ -349,12 +355,63 @@ def plot_selected_adaptation_options(cycle):
     )
     plt.show()
 
+
+def plot_feature_scaling():
+    plt_index = 1
+    dataset = json.load(open('data/dataset/' + version + '/packet_loss.json'))
+    features = dataset['features']
+
+    for scaler_name, scaler in [
+        ('No Scaling', None),
+        ('With Min Max Scaler', MinMaxScaler),
+        ('With Standard Scaler', StandardScaler),
+        ('With Max Abs Scaler', MaxAbsScaler)
+    ]:
+        plt.subplot(2, 2, plt_index)
+        f = list(features)
+
+        if scaler is not None:
+            scaler = scaler()
+            scaler.partial_fit(f)
+            f = scaler.transform(f)
+
+        plt.bar(range(1, 18), f[0][:17], label='SNR', color='red')
+        plt.bar(range(18, 34), f[0][17:33], label='Power', color='blue')
+        plt.bar(range(34, 51), f[0][33:50], label='Distribution', color='green')
+        plt.bar(range(51, 66), f[0][50:], label='Load', color='orange')
+
+        plt.title(scaler_name)
+        plt.xlabel('Features')
+        plt.ylabel('Scaled Value')
+        plt.xticks([1, 17, 34, 51, 65])
+        plt_index += 1
+
+        if scaler is None:
+            plt.legend(
+                bbox_to_anchor=(0., 1.2, 2.2, 0.),
+                loc=3,
+                ncol=4,
+                mode='expand',
+                borderaxespad=0.,
+                handles=[
+                    mpatches.Patch(color='red', label='SNR'),
+                    mpatches.Patch(color='blue', label='Power'),
+                    mpatches.Patch(color='green', label='Distribution'),
+                    mpatches.Patch(color='orange', label='Load')
+                ]
+            )
+            plt.title(scaler_name)
+            plt.ylabel('Original Value')
+
+    plt.show()
+
+
+plot_feature_scaling()
 #plot_learning_vs_no_learning()
 #plot_learning_models_time()
 #plot_uncertainties_profiles()
 #plot_training_selection()
 #plot_offline_activities_time()
 #plot_offline_activities()
-
 #for i in range(300, 0, -1):
 #    plot_selected_adaptation_options(i)

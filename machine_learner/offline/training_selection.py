@@ -4,9 +4,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
 import time
 
-version = 'v1'  # v1, v2
+version = 'v2'  # v1, v2
 
-total_samples = 4000 if version == 'v2' else 1000  # any desired value
+total_samples = 16000 if version == 'v2' else 1000  # any desired value
 test_sizes = [0.9, 0.7, 0.5, 0.3]  # any desired value
 
 models = {
@@ -58,17 +58,17 @@ for dataset_name, dataset in [
     accuracy = []
     training_samples = []
     features = list(dataset['features'][:total_samples])
-    target = list(dataset['target'][:total_samples])
+    labels = list(dataset['labels'][:total_samples])
 
     for test_size in test_sizes:
-        training_features, testing_features, training_target, testing_target = train_test_split(
+        training_features, testing_features, training_labels, testing_labels = train_test_split(
             features,
-            target,
+            labels,
             test_size=test_size,
             random_state=1,
         )
 
-        training_samples.append(len(training_target))
+        training_samples.append(len(training_labels))
 
         model = models[version][dataset_name]['model']
         scaler = models[version][dataset_name]['scaler']
@@ -77,14 +77,15 @@ for dataset_name, dataset in [
         training_features = scaler.transform(training_features)
         testing_features = scaler.transform(testing_features)
 
-        model.fit(training_features, training_target)
-        accuracy.append(model.score(testing_features, testing_target))
+        model.fit(training_features, training_labels)
+        score = model.score(testing_features, testing_labels)
+        accuracy.append(score)
 
     end_time = time.time() - start_time
 
     print({
         'version': version,
-        'target': dataset_name,
+        'dataset': dataset_name,
         'accuracy': accuracy,
         'training_samples': training_samples,
         'total_samples': total_samples,
@@ -99,5 +100,5 @@ for dataset_name, dataset in [
         'execution_time_in_sec': end_time
     })
 
-with open('data/training_selection/' + version + '_training_selection.json', 'w') as f:
+with open('data/training_selection/#' + version + '_training_selection.json', 'w') as f:
     json.dump(results, f, indent=2)
