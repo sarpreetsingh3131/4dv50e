@@ -67,7 +67,7 @@ public class Comparison extends SMCConnector {
             FileWriter writer = new FileWriter(
                     Paths.get(
                             System.getProperty("user.dir"),
-                            "activforms", "log", "comparison_adaptation_cycle_" + cycles + ".json")
+                            "activforms", "log", "comparison_cycle_" + cycles + ".json")
                             .toString()
             );
 
@@ -93,7 +93,7 @@ public class Comparison extends SMCConnector {
         data.put("packet_loss", packetLossTarget);
         data.put("latency", latencyTarget);
         data.put("energy_consumption", energyConsumption);
-        data.put("indexes_of_adaptation_options_selected_by_learner", learnerSelectedOptionsIndexes);
+        data.put("indexes_of_selected_adaptation_options", learnerSelectedOptionsIndexes);
         return data;
     }
 
