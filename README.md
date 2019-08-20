@@ -1,5 +1,5 @@
 # 4dv50e
-master-thesis
+master-thesis (http://lnu.diva-portal.org/smash/record.jsf?pid=diva2%3A1341195&dswid=-4575)
 
 ## How to run
 1. `docker-compose build`
