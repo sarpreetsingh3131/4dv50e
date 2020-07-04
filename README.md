@@ -5,7 +5,7 @@ title - Applying Artificial Neural Networks to Reduce the Adaptation Space in Se
 
 link - http://www.diva-portal.org/smash/record.jsf?pid=diva2:1341195
 
-previous-research - http://www.diva-portal.org/smash/record.jsf?pid=diva2:1240014
+initial-research - http://www.diva-portal.org/smash/record.jsf?pid=diva2:1240014
 
 ## How to run
 1. `docker-compose build`
